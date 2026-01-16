@@ -78,6 +78,8 @@ export interface SyllabusTopic {
   status: TopicStatus;
   completedAt?: Date;
   order: number;
+  isCompleted: boolean;
+  notes: string;
 }
 
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
