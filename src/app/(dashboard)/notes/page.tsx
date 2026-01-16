@@ -286,7 +286,6 @@ export default function NotesPage() {
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     className="font-semibold text-lg"
-                    size="sm"
                   />
                 ) : (
                   <h2 className="text-lg font-semibold text-white">{selectedNote.title}</h2>
