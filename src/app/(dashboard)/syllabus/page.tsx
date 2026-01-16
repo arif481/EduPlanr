@@ -346,7 +346,7 @@ export default function SyllabusPage() {
                   </div>
 
                   {progress === 100 && (
-                    <Badge variant="success">
+                    <Badge variant="green">
                       <CheckCircleIcon className="w-3.5 h-3.5 mr-1" />
                       Complete
                     </Badge>
