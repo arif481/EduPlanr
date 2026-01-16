@@ -447,7 +447,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-gray-400">Connected</p>
                     </div>
                   </div>
-                  <Badge variant="success">Connected</Badge>
+                  <Badge variant="green">Connected</Badge>
                 </div>
               </div>
             </div>
