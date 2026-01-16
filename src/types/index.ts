@@ -70,6 +70,7 @@ export interface Syllabus {
 
 export interface SyllabusTopic {
   id: string;
+  syllabusId: string;
   title: string;
   description: string;
   estimatedHours: number;
