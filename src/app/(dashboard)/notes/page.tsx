@@ -219,7 +219,6 @@ export default function NotesPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 leftIcon={<MagnifyingGlassIcon className="w-4 h-4" />}
-                size="sm"
               />
             </div>
 
