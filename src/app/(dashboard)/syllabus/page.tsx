@@ -41,7 +41,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 1,
         estimatedHours: 4,
         completedAt: new Date(Date.now() - 604800000),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -52,7 +52,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 2,
         estimatedHours: 5,
         completedAt: new Date(Date.now() - 259200000),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -63,7 +63,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 3,
         estimatedHours: 4,
         completedAt: null,
-            // isCompleted removed
+        isCompleted: false,
         notes: '',
       },
       {
@@ -74,7 +74,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 4,
         estimatedHours: 8,
         completedAt: null,
-            // isCompleted removed
+        isCompleted: false,
         notes: '',
       },
     ],
@@ -98,7 +98,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 1,
         estimatedHours: 6,
         completedAt: new Date(),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -109,7 +109,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 2,
         estimatedHours: 8,
         completedAt: null,
-            // isCompleted removed
+        isCompleted: false,
         notes: '',
       },
       {
@@ -120,7 +120,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 3,
         estimatedHours: 6,
         completedAt: null,
-            // isCompleted removed
+        isCompleted: false,
         notes: '',
       },
     ],
@@ -144,7 +144,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 1,
         estimatedHours: 4,
         completedAt: new Date(),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -155,7 +155,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 2,
         estimatedHours: 3,
         completedAt: new Date(),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -166,7 +166,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 3,
         estimatedHours: 10,
         completedAt: new Date(),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
       {
@@ -177,7 +177,7 @@ const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
         order: 4,
         estimatedHours: 4,
         completedAt: new Date(),
-            // isCompleted removed
+        isCompleted: true,
         notes: '',
       },
     ],
