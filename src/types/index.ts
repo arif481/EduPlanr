@@ -66,6 +66,8 @@ export interface Syllabus {
   endDate: Date;
   createdAt: Date;
   updatedAt: Date;
+  totalTopics: number;
+  completedTopics: number;
 }
 
 export interface SyllabusTopic {
