@@ -137,7 +137,7 @@ export default function SettingsPage() {
                 type="email"
                 value={userData.email}
                 disabled
-                helperText="Email cannot be changed"
+                hint="Email cannot be changed"
               />
             </div>
 
