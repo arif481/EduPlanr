@@ -1,0 +1,224 @@
+/**
+ * Authentication Service
+ * Handles all Firebase authentication operations including
+ * Google sign-in, email/password, and anonymous authentication
+ */
+
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  User,
+  sendPasswordResetEmail,
+  updateProfile,
+  linkWithCredential,
+  EmailAuthProvider,
+  UserCredential,
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { UserProfile, UserPreferences } from '@/types';
+
+// Default preferences for new users
+const DEFAULT_PREFERENCES: UserPreferences = {
+  theme: 'dark',
+  defaultStudyDuration: 45,
+  breakDuration: 10,
+  dailyGoalHours: 4,
+  notifications: true,
+  soundEnabled: true,
+};
+
+/**
+ * Creates or updates user profile in Firestore after authentication
+ */
+async function createUserProfile(user: User): Promise<UserProfile> {
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    // Create new user profile
+    const newProfile: Omit<UserProfile, 'createdAt' | 'updatedAt'> = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      preferences: DEFAULT_PREFERENCES,
+    };
+
+    await setDoc(userRef, {
+      ...newProfile,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      ...newProfile,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  // Return existing profile
+  const data = userSnap.data();
+  return {
+    ...data,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  } as UserProfile;
+}
+
+/**
+ * Sign in with Google OAuth
+ */
+export async function signInWithGoogle(): Promise<UserProfile> {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('email');
+  provider.addScope('profile');
+
+  const result = await signInWithPopup(auth, provider);
+  return createUserProfile(result.user);
+}
+
+/**
+ * Sign in with email and password
+ */
+export async function signInWithEmail(
+  email: string,
+  password: string
+): Promise<UserProfile> {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return createUserProfile(result.user);
+}
+
+/**
+ * Create new account with email and password
+ */
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  displayName?: string
+): Promise<UserProfile> {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  
+  // Update display name if provided
+  if (displayName) {
+    await updateProfile(result.user, { displayName });
+  }
+
+  return createUserProfile(result.user);
+}
+
+/**
+ * Sign in anonymously for quick access without account
+ */
+export async function signInAnonymouslyUser(): Promise<UserProfile> {
+  const result = await signInAnonymously(auth);
+  return createUserProfile(result.user);
+}
+
+/**
+ * Convert anonymous account to permanent account
+ */
+export async function convertAnonymousAccount(
+  email: string,
+  password: string
+): Promise<UserCredential> {
+  const currentUser = auth.currentUser;
+  if (!currentUser || !currentUser.isAnonymous) {
+    throw new Error('No anonymous user to convert');
+  }
+
+  const credential = EmailAuthProvider.credential(email, password);
+  return linkWithCredential(currentUser, credential);
+}
+
+/**
+ * Send password reset email
+ */
+export async function resetPassword(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
+}
+
+/**
+ * Sign out current user
+ */
+export async function signOut(): Promise<void> {
+  await firebaseSignOut(auth);
+}
+
+/**
+ * Subscribe to authentication state changes
+ */
+export function subscribeToAuthChanges(
+  callback: (user: User | null) => void
+): () => void {
+  return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Get current authenticated user
+ */
+export function getCurrentUser(): User | null {
+  return auth.currentUser;
+}
+
+/**
+ * Check if current user is anonymous
+ */
+export function isAnonymousUser(): boolean {
+  return auth.currentUser?.isAnonymous ?? false;
+}
+
+/**
+ * Update user display name
+ */
+export async function updateUserDisplayName(displayName: string): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No authenticated user');
+
+  await updateProfile(user, { displayName });
+  
+  // Update Firestore profile
+  const userRef = doc(db, 'users', user.uid);
+  await setDoc(userRef, { displayName, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/**
+ * Get user profile from Firestore
+ */
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+  
+  if (!userSnap.exists()) return null;
+
+  const data = userSnap.data();
+  return {
+    ...data,
+    createdAt: data.createdAt?.toDate() || new Date(),
+    updatedAt: data.updatedAt?.toDate() || new Date(),
+  } as UserProfile;
+}
+
+/**
+ * Update user preferences
+ */
+export async function updateUserPreferences(
+  uid: string,
+  preferences: Partial<UserPreferences>
+): Promise<void> {
+  const userRef = doc(db, 'users', uid);
+  await setDoc(
+    userRef,
+    { 
+      preferences,
+      updatedAt: serverTimestamp() 
+    },
+    { merge: true }
+  );
+}
