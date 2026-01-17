@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   publisher: 'EduPlanr',
   robots: 'index, follow',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.svg',
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
