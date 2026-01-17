@@ -29,6 +29,8 @@ export async function createSyllabus(
   userId: string,
   syllabus: Omit<Syllabus, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<Syllabus> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const syllabusRef = collection(db, COLLECTION_NAME);
   
   // Ensure each topic has an ID
@@ -64,6 +66,8 @@ export async function createSyllabus(
  * Get a single syllabus by ID
  */
 export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, syllabusId);
   const docSnap = await getDoc(docRef);
   
@@ -88,6 +92,8 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
  * Get all syllabi for a user
  */
 export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('userId', '==', userId),
@@ -120,6 +126,8 @@ export async function getSyllabiBySubject(
   userId: string,
   subjectId: string
 ): Promise<Syllabus[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('userId', '==', userId),
@@ -149,6 +157,8 @@ export async function updateSyllabus(
   syllabusId: string,
   updates: Partial<Omit<Syllabus, 'id' | 'userId' | 'createdAt'>>
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, syllabusId);
   
   await updateDoc(docRef, {
@@ -161,6 +171,8 @@ export async function updateSyllabus(
  * Delete a syllabus
  */
 export async function deleteSyllabus(syllabusId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, syllabusId);
   await deleteDoc(docRef);
 }
