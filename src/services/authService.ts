@@ -37,6 +37,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
  * Creates or updates user profile in Firestore after authentication
  */
 async function createUserProfile(user: User): Promise<UserProfile> {
+  if (!db) {
+    throw new Error('Firebase not initialized');
+  }
+
   const userRef = doc(db, 'users', user.uid);
   const userSnap = await getDoc(userRef);
 
@@ -128,6 +132,8 @@ export async function convertAnonymousAccount(
   email: string,
   password: string
 ): Promise<UserCredential> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   const currentUser = auth.currentUser;
   if (!currentUser || !currentUser.isAnonymous) {
     throw new Error('No anonymous user to convert');
@@ -164,6 +170,7 @@ export function subscribeToAuthChanges(
  * Get current authenticated user
  */
 export function getCurrentUser(): User | null {
+  if (!auth) return null;
   return auth.currentUser;
 }
 
@@ -171,6 +178,7 @@ export function getCurrentUser(): User | null {
  * Check if current user is anonymous
  */
 export function isAnonymousUser(): boolean {
+  if (!auth) return false;
   return auth.currentUser?.isAnonymous ?? false;
 }
 
@@ -180,6 +188,7 @@ export function isAnonymousUser(): boolean {
 export async function updateUserDisplayName(displayName: string): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error('No authenticated user');
+  if (!db) throw new Error('Firebase not initialized');
 
   await updateProfile(user, { displayName });
   
@@ -192,6 +201,8 @@ export async function updateUserDisplayName(displayName: string): Promise<void> 
  * Get user profile from Firestore
  */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
   
@@ -212,6 +223,8 @@ export async function updateUserPreferences(
   uid: string,
   preferences: Partial<UserPreferences>
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const userRef = doc(db, 'users', uid);
   await setDoc(
     userRef,
