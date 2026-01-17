@@ -248,6 +248,8 @@ export async function createConversation(
   userId: string,
   title: string = 'New Chat'
 ): Promise<Conversation> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const conversationsRef = collection(db, CONVERSATIONS_COLLECTION);
   
   const conversation: Omit<Conversation, 'id'> = {
@@ -275,6 +277,8 @@ export async function createConversation(
  * Get a conversation by ID
  */
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
   const docSnap = await getDoc(docRef);
   
@@ -297,6 +301,8 @@ export async function getConversation(conversationId: string): Promise<Conversat
  * Get all conversations for a user
  */
 export async function getUserConversations(userId: string): Promise<Conversation[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, CONVERSATIONS_COLLECTION),
     where('userId', '==', userId),
@@ -327,6 +333,8 @@ export async function addMessageToConversation(
   role: 'user' | 'assistant',
   content: string
 ): Promise<ChatMessage> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const conversation = await getConversation(conversationId);
   if (!conversation) throw new Error('Conversation not found');
 
@@ -357,6 +365,8 @@ export async function addMessageToConversation(
  * Delete a conversation
  */
 export async function deleteConversation(conversationId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
   await deleteDoc(docRef);
 }
@@ -365,6 +375,8 @@ export async function deleteConversation(conversationId: string): Promise<void> 
  * Archive a conversation
  */
 export async function archiveConversation(conversationId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
   await updateDoc(docRef, { 
     isArchived: true,
