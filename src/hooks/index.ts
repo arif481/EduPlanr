@@ -16,7 +16,7 @@ export function useAuth() {
   const { user, profile, isLoading, setUser, setProfile, setLoading, reset } = useAuthStore();
 
   useEffect(() => {
-    if (!isClient()) return;
+    if (!isClient() || !auth) return;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
