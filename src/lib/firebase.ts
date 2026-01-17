@@ -21,10 +21,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only once (singleton pattern)
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 let analytics: Analytics | null = null;
 
 if (typeof window !== 'undefined') {
@@ -42,7 +42,7 @@ if (typeof window !== 'undefined') {
   // Initialize Analytics only if supported (browser environment)
   isSupported().then((supported) => {
     if (supported) {
-      analytics = getAnalytics(app);
+      analytics = getAnalytics(app!);
     }
   });
 }
