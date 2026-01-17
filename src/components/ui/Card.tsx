@@ -8,7 +8,8 @@ import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface CardProps extends HTMLMotionProps<'div'> {
-  variant?: 'default' | 'elevated' | 'bordered' | 'gradient';
+  variant?: 'default' | 'elevated' | 'bordered' | 'gradient' | 'glow';
+  glowColor?: 'cyan' | 'purple' | 'pink' | 'green';
   hoverable?: boolean;
   neonBorder?: boolean;
   children: React.ReactNode;
@@ -22,12 +23,14 @@ const variantStyles = {
     bg-gradient-to-br from-dark-800/80 to-dark-900/80
     backdrop-blur-xl border border-dark-600/30
   `,
+  glow: 'bg-dark-800/50 backdrop-blur-xl border border-dark-600/50',
 };
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   (
     {
       variant = 'default',
+      glowColor,
       hoverable = false,
       neonBorder = false,
       className,
@@ -36,12 +39,26 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
+    const getGlowClass = () => {
+      if (variant !== 'glow' || !glowColor) return '';
+      
+      const glowClasses = {
+        cyan: 'shadow-neon-cyan',
+        purple: 'shadow-neon-purple',
+        pink: 'shadow-neon-magenta',
+        green: 'shadow-neon-green',
+      };
+      
+      return glowClasses[glowColor] || '';
+    };
+
     return (
       <motion.div
         ref={ref}
         className={cn(
           'rounded-2xl p-6',
           variantStyles[variant],
+          getGlowClass(),
           hoverable && 'transition-all duration-300 hover:translate-y-[-4px] hover:shadow-glow cursor-pointer',
           neonBorder && 'neon-border',
           className
