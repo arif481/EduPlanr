@@ -33,6 +33,8 @@ export async function createMaterial(
   userId: string,
   material: Omit<StudyMaterial, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<StudyMaterial> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const materialsRef = collection(db, COLLECTION_NAME);
   
   const docData = {
@@ -57,6 +59,8 @@ export async function createMaterial(
  * Get a single material by ID
  */
 export async function getMaterial(materialId: string): Promise<StudyMaterial | null> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, materialId);
   const docSnap = await getDoc(docRef);
   
@@ -78,6 +82,8 @@ export async function updateMaterial(
   materialId: string,
   updates: Partial<Omit<StudyMaterial, 'id' | 'userId' | 'createdAt'>>
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, materialId);
   
   await updateDoc(docRef, {
@@ -90,6 +96,8 @@ export async function updateMaterial(
  * Delete a material
  */
 export async function deleteMaterial(materialId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, materialId);
   await deleteDoc(docRef);
 }
@@ -103,6 +111,8 @@ export async function getMaterials(
   lastDoc?: DocumentSnapshot,
   pageSize: number = PAGE_SIZE
 ): Promise<PaginatedResponse<StudyMaterial>> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const constraints: QueryConstraint[] = [
     where('userId', '==', userId),
     where('isArchived', '==', false),
@@ -160,6 +170,8 @@ export async function getMaterials(
  * Get favorite materials
  */
 export async function getFavoriteMaterials(userId: string): Promise<StudyMaterial[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('userId', '==', userId),
@@ -186,6 +198,8 @@ export async function getFavoriteMaterials(userId: string): Promise<StudyMateria
  * Toggle favorite status
  */
 export async function toggleFavorite(materialId: string, isFavorite: boolean): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, materialId);
   await updateDoc(docRef, { 
     isFavorite, 
@@ -197,6 +211,8 @@ export async function toggleFavorite(materialId: string, isFavorite: boolean): P
  * Archive a material (soft delete)
  */
 export async function archiveMaterial(materialId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, materialId);
   await updateDoc(docRef, { 
     isArchived: true, 
@@ -211,6 +227,8 @@ export async function searchMaterials(
   userId: string,
   searchTerm: string
 ): Promise<StudyMaterial[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   // Note: Firestore doesn't support full-text search natively
   // For production, consider using Algolia or Elasticsearch
   // This is a simple prefix search
@@ -247,6 +265,8 @@ export async function searchMaterials(
 export async function getMaterialsCountByType(
   userId: string
 ): Promise<Record<string, number>> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('userId', '==', userId),
