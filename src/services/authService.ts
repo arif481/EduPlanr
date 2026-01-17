@@ -80,6 +80,8 @@ async function createUserProfile(user: User): Promise<UserProfile> {
  * Sign in with Google OAuth
  */
 export async function signInWithGoogle(): Promise<UserProfile> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   const provider = new GoogleAuthProvider();
   provider.addScope('email');
   provider.addScope('profile');
@@ -95,6 +97,8 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<UserProfile> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   const result = await signInWithEmailAndPassword(auth, email, password);
   return createUserProfile(result.user);
 }
@@ -107,6 +111,8 @@ export async function signUpWithEmail(
   password: string,
   displayName?: string
 ): Promise<UserProfile> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   const result = await createUserWithEmailAndPassword(auth, email, password);
   
   // Update display name if provided
@@ -121,6 +127,8 @@ export async function signUpWithEmail(
  * Sign in anonymously for quick access without account
  */
 export async function signInAnonymouslyUser(): Promise<UserProfile> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   const result = await signInAnonymously(auth);
   return createUserProfile(result.user);
 }
@@ -147,6 +155,8 @@ export async function convertAnonymousAccount(
  * Send password reset email
  */
 export async function resetPassword(email: string): Promise<void> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   await sendPasswordResetEmail(auth, email);
 }
 
@@ -154,6 +164,8 @@ export async function resetPassword(email: string): Promise<void> {
  * Sign out current user
  */
 export async function signOut(): Promise<void> {
+  if (!auth) throw new Error('Firebase not initialized');
+
   await firebaseSignOut(auth);
 }
 
@@ -163,6 +175,11 @@ export async function signOut(): Promise<void> {
 export function subscribeToAuthChanges(
   callback: (user: User | null) => void
 ): () => void {
+  if (!auth) {
+    // Return no-op function if Firebase not initialized
+    return () => {};
+  }
+
   return onAuthStateChanged(auth, callback);
 }
 
