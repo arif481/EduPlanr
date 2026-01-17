@@ -41,6 +41,8 @@ export async function createSession(
   userId: string,
   session: Omit<StudySession, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<StudySession> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const sessionsRef = collection(db, COLLECTION_NAME);
   
   const docData = {
@@ -67,6 +69,8 @@ export async function createSession(
  * Get a single session by ID
  */
 export async function getSession(sessionId: string): Promise<StudySession | null> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, sessionId);
   const docSnap = await getDoc(docRef);
   
@@ -91,6 +95,8 @@ export async function getSessionsInRange(
   startDate: Date,
   endDate: Date
 ): Promise<StudySession[]> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const q = query(
     collection(db, COLLECTION_NAME),
     where('userId', '==', userId),
@@ -137,6 +143,8 @@ export async function updateSession(
   sessionId: string,
   updates: Partial<Omit<StudySession, 'id' | 'userId' | 'createdAt'>>
 ): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, sessionId);
   
   const updateData: Record<string, unknown> = {
@@ -172,6 +180,8 @@ export async function completeSession(
  * Delete a session
  */
 export async function deleteSession(sessionId: string): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
   const docRef = doc(db, COLLECTION_NAME, sessionId);
   await deleteDoc(docRef);
 }
