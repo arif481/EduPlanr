@@ -237,7 +237,7 @@ export default function SyllabusPage() {
             ? {
                 ...topic,
                 isCompleted: !topic.isCompleted,
-                completedAt: !topic.isCompleted ? new Date() : null,
+                completedAt: !topic.isCompleted ? new Date() : undefined,
               }
             : topic
         );
