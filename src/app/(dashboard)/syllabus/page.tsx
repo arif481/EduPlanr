@@ -311,7 +311,7 @@ export default function SyllabusPage() {
           <Progress
             value={overallProgress}
             max={100}
-            variant="gradient"
+            variant="default"
             size="lg"
             showLabel={false}
           />
