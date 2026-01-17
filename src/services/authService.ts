@@ -206,6 +206,7 @@ export async function updateUserDisplayName(displayName: string): Promise<void> 
   if (!auth) throw new Error('Firebase not initialized');
 
   const user = auth.currentUser;
+  if (!user) throw new Error('No authenticated user');
 
   await updateProfile(user, { displayName });
   
