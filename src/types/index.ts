@@ -16,6 +16,7 @@ export interface UserProfile {
 
 export interface UserPreferences {
   theme: 'dark' | 'light' | 'system';
+  timezone?: string;
   defaultStudyDuration: number; // minutes
   breakDuration: number; // minutes
   dailyGoalHours: number;

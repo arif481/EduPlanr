@@ -1,12 +1,14 @@
 /**
  * Settings Page
- * User preferences and application settings
+ * User preferences and application settings with REAL Firebase save
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 import {
   UserCircleIcon,
   BellIcon,
@@ -18,9 +20,18 @@ import {
   MoonIcon,
   ComputerDesktopIcon,
   ArrowRightOnRectangleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, Button, Input, Badge, Avatar } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store';
+import {
+  updateUserDisplayName,
+  updateUserPreferences,
+  signOut,
+} from '@/services/authService';
+import { deleteUser } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 interface SettingSection {
   id: string;
@@ -63,16 +74,15 @@ const settingSections: SettingSection[] = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const { user, profile } = useAuthStore();
   const [activeSection, setActiveSection] = useState('profile');
   const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Mock user data
-  const [userData, setUserData] = useState({
-    displayName: 'Alex Student',
-    email: 'alex@example.com',
-    photoURL: null,
-    timezone: 'America/New_York',
-  });
+  // Form states initialized with profile data
+  const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [timezone, setTimezone] = useState(profile?.preferences?.timezone || 'America/New_York');
 
   // Notification settings
   const [notifications, setNotifications] = useState({
@@ -85,25 +95,90 @@ export default function SettingsPage() {
 
   // Appearance settings
   const [appearance, setAppearance] = useState({
-    theme: 'dark' as 'light' | 'dark' | 'system',
+    theme: (profile?.preferences?.theme || 'dark') as 'light' | 'dark' | 'system',
     accentColor: 'cyan' as 'cyan' | 'purple' | 'pink' | 'green',
     compactMode: false,
   });
 
   // Study settings
   const [studySettings, setStudySettings] = useState({
-    defaultSessionDuration: 25,
-    breakDuration: 5,
+    defaultSessionDuration: profile?.preferences?.defaultStudyDuration || 45,
+    breakDuration: profile?.preferences?.breakDuration || 10,
     longBreakDuration: 15,
     sessionsBeforeLongBreak: 4,
     autoStartBreaks: true,
-    soundEnabled: true,
+    soundEnabled: profile?.preferences?.soundEnabled ?? true,
   });
 
-  const handleSave = () => {
-    // In production, save to Firebase
-    setIsDirty(false);
-    // Show success toast
+  // Update local state when profile loads
+  useEffect(() => {
+    if (profile) {
+      setDisplayName(profile.displayName || '');
+      setTimezone(profile.preferences?.timezone || 'America/New_York');
+      setAppearance(prev => ({ ...prev, theme: profile.preferences?.theme || 'dark' }));
+      setStudySettings(prev => ({
+        ...prev,
+        defaultSessionDuration: profile.preferences?.defaultStudyDuration || 45,
+        breakDuration: profile.preferences?.breakDuration || 10,
+        soundEnabled: profile.preferences?.soundEnabled ?? true
+      }));
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    setIsSaving(true);
+
+    try {
+      // 1. Update Profile (DisplayName)
+      if (displayName !== profile?.displayName) {
+        await updateUserDisplayName(displayName);
+      }
+
+      // 2. Update Preferences
+      await updateUserPreferences(user.uid, {
+        theme: appearance.theme,
+        timezone: timezone,
+        defaultStudyDuration: studySettings.defaultSessionDuration,
+        breakDuration: studySettings.breakDuration,
+        soundEnabled: studySettings.soundEnabled,
+        notifications: notifications.pushNotifications
+      });
+
+      setIsDirty(false);
+      toast.success('Settings saved successfully');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/auth/login');
+      toast.success('Signed out successfully');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      toast.error('Failed to sign out');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you ABSOLUTELY sure? This action cannot be undone and will delete all your data.')) return;
+
+    try {
+      if (auth?.currentUser) {
+        await deleteUser(auth.currentUser);
+        router.push('/auth/login');
+        toast.success('Account deleted');
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+      toast.error('Failed to delete account. You may need to re-login deeply first.');
+    }
   };
 
   const renderSectionContent = () => {
@@ -113,12 +188,12 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Avatar */}
             <div className="flex items-center gap-4">
-              <Avatar name={userData.displayName} size="xl" />
+              <Avatar name={displayName || user?.email || 'User'} size="xl" />
               <div>
-                <Button variant="secondary" size="sm">
+                <Button variant="secondary" size="sm" disabled>
                   Change Photo
                 </Button>
-                <p className="text-xs text-gray-500 mt-1">JPG, PNG. Max 2MB</p>
+                <p className="text-xs text-gray-500 mt-1">Managed automatically</p>
               </div>
             </div>
 
@@ -126,16 +201,16 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Display Name"
-                value={userData.displayName}
+                value={displayName}
                 onChange={(e) => {
-                  setUserData({ ...userData, displayName: e.target.value });
+                  setDisplayName(e.target.value);
                   setIsDirty(true);
                 }}
               />
               <Input
                 label="Email"
                 type="email"
-                value={userData.email}
+                value={user?.email || ''}
                 disabled
                 hint="Email cannot be changed"
               />
@@ -146,9 +221,9 @@ export default function SettingsPage() {
                 Timezone
               </label>
               <select
-                value={userData.timezone}
+                value={timezone}
                 onChange={(e) => {
-                  setUserData({ ...userData, timezone: e.target.value });
+                  setTimezone(e.target.value);
                   setIsDirty(true);
                 }}
                 className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50"
@@ -169,7 +244,7 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-400 mb-4">
                 Permanently delete your account and all associated data.
               </p>
-              <Button variant="danger" size="sm">
+              <Button variant="danger" size="sm" onClick={handleDeleteAccount} leftIcon={<TrashIcon className="w-4 h-4" />}>
                 Delete Account
               </Button>
             </div>
@@ -527,6 +602,7 @@ export default function SettingsPage() {
 
             <div className="mt-4 pt-4 border-t border-dark-600/50">
               <button
+                onClick={handleSignOut}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
               >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
@@ -562,8 +638,8 @@ export default function SettingsPage() {
                 <Button variant="secondary" onClick={() => setIsDirty(false)}>
                   Cancel
                 </Button>
-                <Button variant="primary" onClick={handleSave}>
-                  Save Changes
+                <Button variant="primary" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </motion.div>
             )}

@@ -1,6 +1,6 @@
 /**
- * Study Materials Service
- * Handles CRUD operations for study materials (notes, links, documents)
+ * Materials Service
+ * Handles CRUD operations for study materials (notes, links, etc.)
  */
 
 import {
@@ -13,18 +13,12 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  limit,
-  startAfter,
   serverTimestamp,
-  DocumentSnapshot,
-  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { StudyMaterial, FilterOptions, PaginatedResponse } from '@/types';
+import { StudyMaterial } from '@/types';
 
 const COLLECTION_NAME = 'materials';
-const PAGE_SIZE = 20;
 
 /**
  * Create a new study material
@@ -35,155 +29,44 @@ export async function createMaterial(
 ): Promise<StudyMaterial> {
   if (!db) throw new Error('Firebase not initialized');
 
-  const materialsRef = collection(db, COLLECTION_NAME);
-  
+  const materialRef = collection(db, COLLECTION_NAME);
+
   const docData = {
     ...material,
     userId,
+    isFavorite: false,
+    isArchived: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  const docRef = await addDoc(materialsRef, docData);
-  
+  const docRef = await addDoc(materialRef, docData);
+
   return {
     id: docRef.id,
     ...material,
     userId,
+    isFavorite: false,
+    isArchived: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 }
 
 /**
- * Get a single material by ID
+ * Get all materials for a user
  */
-export async function getMaterial(materialId: string): Promise<StudyMaterial | null> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  const docRef = doc(db, COLLECTION_NAME, materialId);
-  const docSnap = await getDoc(docRef);
-  
-  if (!docSnap.exists()) return null;
-
-  const data = docSnap.data();
-  return {
-    id: docSnap.id,
-    ...data,
-    createdAt: data.createdAt?.toDate() || new Date(),
-    updatedAt: data.updatedAt?.toDate() || new Date(),
-  } as StudyMaterial;
-}
-
-/**
- * Update an existing material
- */
-export async function updateMaterial(
-  materialId: string,
-  updates: Partial<Omit<StudyMaterial, 'id' | 'userId' | 'createdAt'>>
-): Promise<void> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  const docRef = doc(db, COLLECTION_NAME, materialId);
-  
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/**
- * Delete a material
- */
-export async function deleteMaterial(materialId: string): Promise<void> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  const docRef = doc(db, COLLECTION_NAME, materialId);
-  await deleteDoc(docRef);
-}
-
-/**
- * Get paginated materials for a user with optional filters
- */
-export async function getMaterials(
-  userId: string,
-  filters?: FilterOptions,
-  lastDoc?: DocumentSnapshot,
-  pageSize: number = PAGE_SIZE
-): Promise<PaginatedResponse<StudyMaterial>> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  const constraints: QueryConstraint[] = [
-    where('userId', '==', userId),
-    where('isArchived', '==', false),
-  ];
-
-  // Apply filters
-  if (filters?.subjectId) {
-    constraints.push(where('subjectId', '==', filters.subjectId));
-  }
-
-  if (filters?.tags && filters.tags.length > 0) {
-    constraints.push(where('tags', 'array-contains-any', filters.tags));
-  }
-
-  // Add ordering
-  constraints.push(orderBy('updatedAt', 'desc'));
-
-  // Pagination
-  if (lastDoc) {
-    constraints.push(startAfter(lastDoc));
-  }
-
-  constraints.push(limit(pageSize + 1)); // +1 to check if there are more
-
-  const q = query(collection(db, COLLECTION_NAME), ...constraints);
-  const snapshot = await getDocs(q);
-
-  const items: StudyMaterial[] = [];
-  let hasMore = false;
-
-  snapshot.docs.forEach((docSnap, index) => {
-    if (index < pageSize) {
-      const data = docSnap.data();
-      items.push({
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as StudyMaterial);
-    } else {
-      hasMore = true;
-    }
-  });
-
-  return {
-    items,
-    total: items.length, // Note: Firestore doesn't support COUNT efficiently
-    page: 1,
-    pageSize,
-    hasMore,
-  };
-}
-
-/**
- * Get favorite materials
- */
-export async function getFavoriteMaterials(userId: string): Promise<StudyMaterial[]> {
+export async function getUserMaterials(userId: string): Promise<StudyMaterial[]> {
   if (!db) throw new Error('Firebase not initialized');
 
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
-    where('isFavorite', '==', true),
-    where('isArchived', '==', false),
-    orderBy('updatedAt', 'desc'),
-    limit(50)
+    where('userId', '==', userId)
   );
 
   const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map((docSnap) => {
+
+  const materials = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
@@ -192,102 +75,49 @@ export async function getFavoriteMaterials(userId: string): Promise<StudyMateria
       updatedAt: data.updatedAt?.toDate() || new Date(),
     } as StudyMaterial;
   });
+
+  // Sort by updatedAt in memory
+  return materials.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+}
+
+/**
+ * Update material
+ */
+export async function updateMaterial(
+  materialId: string,
+  updates: Partial<Omit<StudyMaterial, 'id' | 'userId' | 'createdAt'>>
+): Promise<void> {
+  if (!db) throw new Error('Firebase not initialized');
+
+  const docRef = doc(db, COLLECTION_NAME, materialId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**
  * Toggle favorite status
  */
-export async function toggleFavorite(materialId: string, isFavorite: boolean): Promise<void> {
+export async function toggleMaterialFavorite(
+  materialId: string,
+  isFavorite: boolean
+): Promise<void> {
   if (!db) throw new Error('Firebase not initialized');
 
   const docRef = doc(db, COLLECTION_NAME, materialId);
-  await updateDoc(docRef, { 
-    isFavorite, 
-    updatedAt: serverTimestamp() 
+  await updateDoc(docRef, {
+    isFavorite,
+    updatedAt: serverTimestamp(),
   });
 }
 
 /**
- * Archive a material (soft delete)
+ * Delete material
  */
-export async function archiveMaterial(materialId: string): Promise<void> {
+export async function deleteMaterial(materialId: string): Promise<void> {
   if (!db) throw new Error('Firebase not initialized');
 
   const docRef = doc(db, COLLECTION_NAME, materialId);
-  await updateDoc(docRef, { 
-    isArchived: true, 
-    updatedAt: serverTimestamp() 
-  });
-}
-
-/**
- * Search materials by title
- */
-export async function searchMaterials(
-  userId: string,
-  searchTerm: string
-): Promise<StudyMaterial[]> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  // Note: Firestore doesn't support full-text search natively
-  // For production, consider using Algolia or Elasticsearch
-  // This is a simple prefix search
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
-    where('isArchived', '==', false),
-    orderBy('title'),
-    limit(50)
-  );
-
-  const snapshot = await getDocs(q);
-  const searchLower = searchTerm.toLowerCase();
-  
-  return snapshot.docs
-    .map((docSnap) => {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date(),
-      } as StudyMaterial;
-    })
-    .filter((material) => 
-      material.title.toLowerCase().includes(searchLower) ||
-      material.content.toLowerCase().includes(searchLower)
-    );
-}
-
-/**
- * Get materials count by type
- */
-export async function getMaterialsCountByType(
-  userId: string
-): Promise<Record<string, number>> {
-  if (!db) throw new Error('Firebase not initialized');
-
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
-    where('isArchived', '==', false)
-  );
-
-  const snapshot = await getDocs(q);
-  
-  const counts: Record<string, number> = {
-    note: 0,
-    link: 0,
-    document: 0,
-    flashcard: 0,
-  };
-
-  snapshot.docs.forEach((docSnap) => {
-    const type = docSnap.data().type;
-    if (type in counts) {
-      counts[type]++;
-    }
-  });
-
-  return counts;
+  await deleteDoc(docRef);
 }
