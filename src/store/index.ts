@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { User } from 'firebase/auth';
-import { UserProfile, Subject, Notification } from '@/types';
+import { UserProfile, Subject, Semester, Notification } from '@/types';
 
 // Authentication store
 interface AuthState {
@@ -63,30 +63,46 @@ export const useUIStore = create<UIState>()(
 // Subjects store
 interface SubjectsState {
   subjects: Subject[];
+  semesters: Semester[];
   selectedSubjectId: string | null;
   isLoading: boolean;
   setSubjects: (subjects: Subject[]) => void;
+  setSemesters: (semesters: Semester[]) => void;
   addSubject: (subject: Subject) => void;
+  addSemester: (semester: Semester) => void;
   updateSubject: (id: string, updates: Partial<Subject>) => void;
+  updateSemester: (id: string, updates: Partial<Semester>) => void;
   removeSubject: (id: string) => void;
+  removeSemester: (id: string) => void;
   setSelectedSubject: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
 }
 
 export const useSubjectsStore = create<SubjectsState>((set) => ({
   subjects: [],
+  semesters: [],
   selectedSubjectId: null,
   isLoading: false,
   setSubjects: (subjects) => set({ subjects }),
+  setSemesters: (semesters) => set({ semesters }),
   addSubject: (subject) => set((state) => ({ subjects: [...state.subjects, subject] })),
+  addSemester: (semester) => set((state) => ({ semesters: [...state.semesters, semester] })),
   updateSubject: (id, updates) =>
     set((state) => ({
       subjects: state.subjects.map((s) => (s.id === id ? { ...s, ...updates } : s)),
+    })),
+  updateSemester: (id, updates) =>
+    set((state) => ({
+      semesters: state.semesters.map((s) => (s.id === id ? { ...s, ...updates } : s)),
     })),
   removeSubject: (id) =>
     set((state) => ({
       subjects: state.subjects.filter((s) => s.id !== id),
       selectedSubjectId: state.selectedSubjectId === id ? null : state.selectedSubjectId,
+    })),
+  removeSemester: (id) =>
+    set((state) => ({
+      semesters: state.semesters.filter((s) => s.id !== id),
     })),
   setSelectedSubject: (selectedSubjectId) => set({ selectedSubjectId }),
   setLoading: (isLoading) => set({ isLoading }),

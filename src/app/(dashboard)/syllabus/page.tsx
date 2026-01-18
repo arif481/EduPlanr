@@ -1,266 +1,234 @@
 /**
  * Syllabus Management Page
- * Track courses, topics, and progress
+ * Track courses, topics, and progress - REAL Firebase data
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   PlusIcon,
   AcademicCapIcon,
-  ChevronDownIcon,
   ChevronRightIcon,
   CheckCircleIcon,
   ClockIcon,
   BookOpenIcon,
-  SparklesIcon,
   TrashIcon,
-  PencilIcon,
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
 import { cn, formatSmartDate } from '@/lib/utils';
 import { Syllabus, SyllabusTopic } from '@/types';
-
-// Mock data
-const mockSyllabi: (Syllabus & { topics: SyllabusTopic[] })[] = [
-  {
-    id: '1',
-    userId: '1',
-    subjectId: '1',
-    title: 'Calculus II',
-    description: 'Integration techniques, series, and applications',
-    topics: [
-      {
-        id: '1-1',
-        syllabusId: '1',
-        title: 'Integration by Parts',
-        description: 'Learn integration by parts technique',
-        order: 1,
-        estimatedHours: 4,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(Date.now() - 604800000),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '1-2',
-        syllabusId: '1',
-        title: 'Trigonometric Substitution',
-        description: 'Use trig identities for integration',
-        order: 2,
-        estimatedHours: 5,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(Date.now() - 259200000),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '1-3',
-        syllabusId: '1',
-        title: 'Partial Fractions',
-        description: 'Decompose rational functions',
-        order: 3,
-        estimatedHours: 4,
-        priority: 'medium',
-        status: 'not-started',
-        completedAt: undefined,
-        isCompleted: false,
-        notes: '',
-      },
-      {
-        id: '1-4',
-        syllabusId: '1',
-        title: 'Sequences and Series',
-        description: 'Convergence tests and power series',
-        order: 4,
-        estimatedHours: 8,
-        priority: 'medium',
-        status: 'not-started',
-        completedAt: undefined,
-        isCompleted: false,
-        notes: '',
-      },
-    ],
-    totalTopics: 4,
-    completedTopics: 2,
-    startDate: new Date(Date.now() - 1209600000),
-    endDate: new Date(Date.now() + 2592000000),
-    createdAt: new Date(Date.now() - 1209600000),
-    updatedAt: new Date(),
-  },
-  {
-    id: '2',
-    userId: '1',
-    subjectId: '2',
-    title: 'Physics 101',
-    description: 'Classical mechanics and thermodynamics',
-    topics: [
-      {
-        id: '2-1',
-        syllabusId: '2',
-        title: 'Kinematics',
-        description: 'Motion in 1D and 2D',
-        order: 1,
-        estimatedHours: 6,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '2-2',
-        syllabusId: '2',
-        title: "Newton's Laws",
-        description: 'Forces and motion',
-        order: 2,
-        estimatedHours: 8,
-        priority: 'high',
-        status: 'not-started',
-        completedAt: undefined,
-        isCompleted: false,
-        notes: '',
-      },
-      {
-        id: '2-3',
-        syllabusId: '2',
-        title: 'Work and Energy',
-        description: 'Energy conservation principles',
-        order: 3,
-        estimatedHours: 6,
-        priority: 'medium',
-        status: 'not-started',
-        completedAt: undefined,
-        isCompleted: false,
-        notes: '',
-      },
-    ],
-    totalTopics: 3,
-    completedTopics: 1,
-    startDate: new Date(Date.now() - 864000000),
-    endDate: new Date(Date.now() + 2592000000),
-    createdAt: new Date(Date.now() - 864000000),
-    updatedAt: new Date(),
-  },
-  {
-    id: '3',
-    userId: '1',
-    subjectId: '3',
-    title: 'Data Structures',
-    description: 'Fundamental data structures and algorithms',
-    topics: [
-      {
-        id: '3-1',
-        syllabusId: '3',
-        title: 'Arrays and Linked Lists',
-        description: 'Linear data structures',
-        order: 1,
-        estimatedHours: 4,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '3-2',
-        syllabusId: '3',
-        title: 'Stacks and Queues',
-        description: 'LIFO and FIFO structures',
-        order: 2,
-        estimatedHours: 3,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '3-3',
-        syllabusId: '3',
-        title: 'Trees and Graphs',
-        description: 'Non-linear data structures',
-        order: 3,
-        estimatedHours: 10,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(),
-        isCompleted: true,
-        notes: '',
-      },
-      {
-        id: '3-4',
-        syllabusId: '3',
-        title: 'Hash Tables',
-        description: 'Key-value storage',
-        order: 4,
-        estimatedHours: 4,
-        priority: 'high',
-        status: 'completed',
-        completedAt: new Date(),
-        isCompleted: true,
-        notes: '',
-      },
-    ],
-    totalTopics: 4,
-    completedTopics: 4,
-    startDate: new Date(Date.now() - 2592000000),
-    endDate: new Date(Date.now() + 2592000000),
-    createdAt: new Date(Date.now() - 2592000000),
-    updatedAt: new Date(),
-  },
-];
+import { useAuthStore } from '@/store';
+import {
+  getUserSyllabi,
+  createSyllabus,
+  deleteSyllabus,
+  updateTopicStatus,
+  addTopic,
+  deleteTopic,
+  calculateProgress,
+} from '@/services/syllabusService';
 
 export default function SyllabusPage() {
-  const [syllabi, setSyllabi] = useState(mockSyllabi);
-  const [expandedSyllabus, setExpandedSyllabus] = useState<string | null>('1');
+  const { user } = useAuthStore();
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedSyllabus, setExpandedSyllabus] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Form states
+  const [newCourseTitle, setNewCourseTitle] = useState('');
+  const [newCourseDescription, setNewCourseDescription] = useState('');
+
+  // Topic add state
+  const [addingTopicFor, setAddingTopicFor] = useState<string | null>(null);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicHours, setNewTopicHours] = useState('2');
+
+  // Fetch syllabi from Firebase
+  const fetchSyllabi = useCallback(async () => {
+    if (!user?.uid) return;
+
+    setIsLoading(true);
+    try {
+      const userSyllabi = await getUserSyllabi(user.uid);
+      setSyllabi(userSyllabi);
+
+      // Auto-expand first syllabus if none expanded
+      if (userSyllabi.length > 0 && !expandedSyllabus) {
+        setExpandedSyllabus(userSyllabi[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching syllabi:', error);
+      toast.error('Failed to load syllabi');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid, expandedSyllabus]);
+
+  useEffect(() => {
+    fetchSyllabi();
+  }, [fetchSyllabi]);
+
   // Calculate overall progress
-  const totalTopics = syllabi.reduce((sum, s) => sum + s.totalTopics, 0);
-  const completedTopics = syllabi.reduce((sum, s) => sum + s.completedTopics, 0);
+  const totalTopics = syllabi.reduce((sum, s) => sum + (s.topics?.length || 0), 0);
+  const completedTopics = syllabi.reduce(
+    (sum, s) => sum + (s.topics?.filter(t => t.status === 'completed').length || 0),
+    0
+  );
   const overallProgress = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0;
 
   // Toggle topic completion
-  const toggleTopicCompletion = (syllabusId: string, topicId: string) => {
-    setSyllabi((prev) =>
-      prev.map((syllabus) => {
+  const handleToggleTopic = async (syllabusId: string, topicId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'completed' ? 'not-started' : 'completed';
+
+    try {
+      await updateTopicStatus(syllabusId, topicId, newStatus as 'completed' | 'not-started');
+
+      setSyllabi(prev => prev.map(syllabus => {
         if (syllabus.id !== syllabusId) return syllabus;
-        
-        const updatedTopics = syllabus.topics.map((topic) =>
+
+        const updatedTopics = syllabus.topics.map(topic =>
           topic.id === topicId
             ? {
-                ...topic,
-                isCompleted: !topic.isCompleted,
-                completedAt: !topic.isCompleted ? new Date() : undefined,
-              }
+              ...topic,
+              status: newStatus as 'completed' | 'not-started',
+              isCompleted: newStatus === 'completed',
+              completedAt: newStatus === 'completed' ? new Date() : undefined,
+            }
             : topic
         );
 
-        const completedCount = updatedTopics.filter((t) => t.isCompleted).length;
+        const completedCount = updatedTopics.filter(t => t.status === 'completed').length;
 
         return {
           ...syllabus,
           topics: updatedTopics,
           completedTopics: completedCount,
         };
-      })
-    );
+      }));
+    } catch (error) {
+      console.error('Error updating topic:', error);
+      toast.error('Failed to update topic');
+    }
   };
 
-  // Get progress color based on percentage
-  const getProgressColor = (progress: number): string => {
-    if (progress === 100) return 'from-neon-green to-neon-cyan';
-    if (progress >= 75) return 'from-neon-cyan to-neon-blue';
-    if (progress >= 50) return 'from-neon-yellow to-neon-green';
-    if (progress >= 25) return 'from-neon-orange to-neon-yellow';
-    return 'from-neon-pink to-neon-purple';
+  // Add new syllabus/course
+  const handleAddCourse = async () => {
+    if (!user?.uid || !newCourseTitle.trim()) {
+      toast.error('Please enter a course title');
+      return;
+    }
+
+    try {
+      const newSyllabus = await createSyllabus(user.uid, {
+        subjectId: '',
+        title: newCourseTitle.trim(),
+        description: newCourseDescription.trim(),
+        topics: [],
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 4 months
+        totalTopics: 0,
+        completedTopics: 0,
+      });
+
+      setSyllabi(prev => [newSyllabus, ...prev]);
+      setNewCourseTitle('');
+      setNewCourseDescription('');
+      setIsAddModalOpen(false);
+      toast.success('Course added successfully!');
+    } catch (error) {
+      console.error('Error creating syllabus:', error);
+      toast.error('Failed to create course');
+    }
   };
+
+  // Delete syllabus
+  const handleDeleteSyllabus = async (syllabusId: string) => {
+    if (!confirm('Are you sure you want to delete this course and all its topics?')) return;
+
+    try {
+      await deleteSyllabus(syllabusId);
+      setSyllabi(prev => prev.filter(s => s.id !== syllabusId));
+      toast.success('Course deleted');
+    } catch (error) {
+      console.error('Error deleting syllabus:', error);
+      toast.error('Failed to delete course');
+    }
+  };
+
+  // Add topic to syllabus
+  const handleAddTopic = async (syllabusId: string) => {
+    if (!newTopicTitle.trim()) {
+      toast.error('Please enter a topic title');
+      return;
+    }
+
+    try {
+      const syllabus = syllabi.find(s => s.id === syllabusId);
+      if (!syllabus) return;
+
+      const newTopic = await addTopic(syllabusId, {
+        syllabusId,
+        title: newTopicTitle.trim(),
+        description: '',
+        estimatedHours: parseInt(newTopicHours) || 2,
+        priority: 'medium',
+        status: 'not-started',
+        order: syllabus.topics?.length || 0,
+        isCompleted: false,
+        notes: '',
+      });
+
+      setSyllabi(prev => prev.map(s =>
+        s.id === syllabusId
+          ? { ...s, topics: [...(s.topics || []), newTopic], totalTopics: (s.totalTopics || 0) + 1 }
+          : s
+      ));
+
+      setNewTopicTitle('');
+      setNewTopicHours('2');
+      setAddingTopicFor(null);
+      toast.success('Topic added!');
+    } catch (error) {
+      console.error('Error adding topic:', error);
+      toast.error('Failed to add topic');
+    }
+  };
+
+  // Delete topic
+  const handleDeleteTopic = async (syllabusId: string, topicId: string) => {
+    try {
+      await deleteTopic(syllabusId, topicId);
+
+      setSyllabi(prev => prev.map(s => {
+        if (s.id !== syllabusId) return s;
+        const updatedTopics = s.topics.filter(t => t.id !== topicId);
+        return {
+          ...s,
+          topics: updatedTopics,
+          totalTopics: updatedTopics.length,
+          completedTopics: updatedTopics.filter(t => t.status === 'completed').length,
+        };
+      }));
+
+      toast.success('Topic deleted');
+    } catch (error) {
+      console.error('Error deleting topic:', error);
+      toast.error('Failed to delete topic');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -321,8 +289,10 @@ export default function SyllabusPage() {
       {/* Syllabi list */}
       <div className="space-y-4">
         {syllabi.map((syllabus, index) => {
-          const progress = (syllabus.completedTopics / syllabus.totalTopics) * 100;
+          const progress = calculateProgress(syllabus);
           const isExpanded = expandedSyllabus === syllabus.id;
+          const topicsCount = syllabus.topics?.length || 0;
+          const completedCount = syllabus.topics?.filter(t => t.status === 'completed').length || 0;
 
           return (
             <motion.div
@@ -333,53 +303,62 @@ export default function SyllabusPage() {
             >
               <Card className="overflow-hidden">
                 {/* Syllabus header */}
-                <button
-                  className="w-full p-4 flex items-center gap-4 hover:bg-dark-700/30 transition-colors"
-                  onClick={() => setExpandedSyllabus(isExpanded ? null : syllabus.id)}
-                >
-                  <motion.div
-                    animate={{ rotate: isExpanded ? 90 : 0 }}
-                    transition={{ duration: 0.2 }}
+                <div className="flex items-center">
+                  <button
+                    className="flex-1 p-4 flex items-center gap-4 hover:bg-dark-700/30 transition-colors"
+                    onClick={() => setExpandedSyllabus(isExpanded ? null : syllabus.id)}
                   >
-                    <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-                  </motion.div>
+                    <motion.div
+                      animate={{ rotate: isExpanded ? 90 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                    </motion.div>
 
-                  <div className="p-2 rounded-xl bg-dark-700/50">
-                    <BookOpenIcon className="w-6 h-6 text-neon-cyan" />
-                  </div>
+                    <div className="p-2 rounded-xl bg-dark-700/50">
+                      <BookOpenIcon className="w-6 h-6 text-neon-cyan" />
+                    </div>
 
-                  <div className="flex-1 text-left">
-                    <h3 className="text-lg font-semibold text-white">{syllabus.title}</h3>
-                    <p className="text-sm text-gray-400 line-clamp-1">
-                      {syllabus.description}
-                    </p>
-                  </div>
-
-                  <div className="hidden md:flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-white">
-                        {syllabus.completedTopics}/{syllabus.totalTopics}
+                    <div className="flex-1 text-left">
+                      <h3 className="text-lg font-semibold text-white">{syllabus.title}</h3>
+                      <p className="text-sm text-gray-400 line-clamp-1">
+                        {syllabus.description || 'No description'}
                       </p>
-                      <p className="text-xs text-gray-400">topics</p>
                     </div>
-                    <div className="w-32">
-                      <Progress
-                        value={progress}
-                        max={100}
-                        variant="default"
-                        size="sm"
-                        showLabel={false}
-                      />
-                    </div>
-                  </div>
 
-                  {progress === 100 && (
-                    <Badge variant="green">
-                      <CheckCircleIcon className="w-3.5 h-3.5 mr-1" />
-                      Complete
-                    </Badge>
-                  )}
-                </button>
+                    <div className="hidden md:flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-white">
+                          {completedCount}/{topicsCount}
+                        </p>
+                        <p className="text-xs text-gray-400">topics</p>
+                      </div>
+                      <div className="w-32">
+                        <Progress
+                          value={progress}
+                          max={100}
+                          variant="default"
+                          size="sm"
+                          showLabel={false}
+                        />
+                      </div>
+                    </div>
+
+                    {progress === 100 && (
+                      <Badge variant="green">
+                        <CheckCircleIcon className="w-3.5 h-3.5 mr-1" />
+                        Complete
+                      </Badge>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteSyllabus(syllabus.id)}
+                    className="p-4 text-gray-500 hover:text-red-400 transition-colors"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                  </button>
+                </div>
 
                 {/* Topics list */}
                 <AnimatePresence>
@@ -392,63 +371,106 @@ export default function SyllabusPage() {
                       className="border-t border-dark-600/50"
                     >
                       <div className="p-4 space-y-2">
-                        {syllabus.topics.map((topic, topicIndex) => (
-                          <motion.div
-                            key={topic.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: topicIndex * 0.05 }}
-                            className={cn(
-                              'flex items-center gap-4 p-3 rounded-xl transition-colors',
-                              topic.isCompleted
-                                ? 'bg-neon-green/5 border border-neon-green/20'
-                                : 'bg-dark-700/30 hover:bg-dark-700/50'
-                            )}
-                          >
-                            <button
-                              onClick={() => toggleTopicCompletion(syllabus.id, topic.id)}
-                              className="flex-shrink-0"
+                        {(!syllabus.topics || syllabus.topics.length === 0) ? (
+                          <p className="text-center text-gray-500 py-4">
+                            No topics yet. Add your first topic!
+                          </p>
+                        ) : (
+                          syllabus.topics.map((topic, topicIndex) => (
+                            <motion.div
+                              key={topic.id}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: topicIndex * 0.05 }}
+                              className={cn(
+                                'flex items-center gap-4 p-3 rounded-xl transition-colors',
+                                topic.status === 'completed'
+                                  ? 'bg-neon-green/5 border border-neon-green/20'
+                                  : 'bg-dark-700/30 hover:bg-dark-700/50'
+                              )}
                             >
-                              {topic.isCompleted ? (
-                                <CheckCircleSolidIcon className="w-6 h-6 text-neon-green" />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full border-2 border-gray-500 hover:border-neon-green transition-colors" />
-                              )}
-                            </button>
-
-                            <div className="flex-1 min-w-0">
-                              <h4
-                                className={cn(
-                                  'font-medium',
-                                  topic.isCompleted ? 'text-gray-400 line-through' : 'text-white'
-                                )}
+                              <button
+                                onClick={() => handleToggleTopic(syllabus.id, topic.id, topic.status)}
+                                className="flex-shrink-0"
                               >
-                                {topic.title}
-                              </h4>
-                              <p className="text-sm text-gray-500 line-clamp-1">
-                                {topic.description}
-                              </p>
-                            </div>
+                                {topic.status === 'completed' ? (
+                                  <CheckCircleSolidIcon className="w-6 h-6 text-neon-green" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full border-2 border-gray-500 hover:border-neon-green transition-colors" />
+                                )}
+                              </button>
 
-                            <div className="flex items-center gap-3 text-sm">
-                              <div className="flex items-center gap-1 text-gray-400">
-                                <ClockIcon className="w-4 h-4" />
-                                <span>{topic.estimatedHours}h</span>
+                              <div className="flex-1 min-w-0">
+                                <h4
+                                  className={cn(
+                                    'font-medium',
+                                    topic.status === 'completed' ? 'text-gray-400 line-through' : 'text-white'
+                                  )}
+                                >
+                                  {topic.title}
+                                </h4>
+                                {topic.description && (
+                                  <p className="text-sm text-gray-500 line-clamp-1">
+                                    {topic.description}
+                                  </p>
+                                )}
                               </div>
-                              {topic.completedAt && (
-                                <span className="text-xs text-gray-500">
-                                  {formatSmartDate(topic.completedAt)}
-                                </span>
-                              )}
-                            </div>
-                          </motion.div>
-                        ))}
 
-                        {/* Add topic button */}
-                        <button className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-dark-500 hover:border-neon-cyan/50 hover:bg-dark-700/30 transition-colors text-gray-400 hover:text-neon-cyan">
-                          <PlusIcon className="w-5 h-5" />
-                          <span>Add Topic</span>
-                        </button>
+                              <div className="flex items-center gap-3 text-sm">
+                                <div className="flex items-center gap-1 text-gray-400">
+                                  <ClockIcon className="w-4 h-4" />
+                                  <span>{topic.estimatedHours}h</span>
+                                </div>
+                                {topic.completedAt && (
+                                  <span className="text-xs text-gray-500">
+                                    {formatSmartDate(topic.completedAt)}
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteTopic(syllabus.id, topic.id)}
+                                  className="p-1 text-gray-600 hover:text-red-400 transition-colors"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))
+                        )}
+
+                        {/* Add topic form */}
+                        {addingTopicFor === syllabus.id ? (
+                          <div className="flex items-center gap-2 p-2">
+                            <input
+                              type="text"
+                              value={newTopicTitle}
+                              onChange={(e) => setNewTopicTitle(e.target.value)}
+                              placeholder="Topic title..."
+                              className="flex-1 px-3 py-2 text-sm bg-dark-800 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddTopic(syllabus.id);
+                                if (e.key === 'Escape') setAddingTopicFor(null);
+                              }}
+                            />
+                            <input
+                              type="number"
+                              value={newTopicHours}
+                              onChange={(e) => setNewTopicHours(e.target.value)}
+                              placeholder="Hours"
+                              className="w-16 px-2 py-2 text-sm bg-dark-800 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan"
+                            />
+                            <Button size="sm" onClick={() => handleAddTopic(syllabus.id)}>Add</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setAddingTopicFor(null)}>Cancel</Button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setAddingTopicFor(syllabus.id)}
+                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-dark-500 hover:border-neon-cyan/50 hover:bg-dark-700/30 transition-colors text-gray-400 hover:text-neon-cyan"
+                          >
+                            <PlusIcon className="w-5 h-5" />
+                            <span>Add Topic</span>
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   )}
@@ -490,6 +512,8 @@ export default function SyllabusPage() {
           <Input
             label="Course Title"
             placeholder="e.g., Advanced Mathematics"
+            value={newCourseTitle}
+            onChange={(e) => setNewCourseTitle(e.target.value)}
           />
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">
@@ -497,6 +521,8 @@ export default function SyllabusPage() {
             </label>
             <textarea
               placeholder="What will you learn in this course?"
+              value={newCourseDescription}
+              onChange={(e) => setNewCourseDescription(e.target.value)}
               className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 transition-all resize-none"
               rows={3}
             />
@@ -505,7 +531,7 @@ export default function SyllabusPage() {
             <Button variant="secondary" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={() => setIsAddModalOpen(false)}>
+            <Button variant="primary" onClick={handleAddCourse}>
               Create Course
             </Button>
           </div>
