@@ -82,7 +82,7 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
     updatedAt: data.updatedAt?.toDate() || new Date(),
     topics: data.topics?.map((topic: SyllabusTopic) => ({
       ...topic,
-      completedAt: topic.completedAt ? new Date(topic.completedAt) : undefined,
+      completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
     })) || [],
   } as Syllabus;
 }
@@ -111,7 +111,7 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
       updatedAt: data.updatedAt?.toDate() || new Date(),
       topics: data.topics?.map((topic: SyllabusTopic) => ({
         ...topic,
-        completedAt: topic.completedAt ? new Date(topic.completedAt) : undefined,
+        completedAt: topic.completedAt ? new Date(topic.completedAt) : null,
       })) || [],
     } as Syllabus;
   });
@@ -237,7 +237,7 @@ export async function updateTopicStatus(
       return {
         ...topic,
         status,
-        completedAt: status === 'completed' ? new Date() : undefined,
+        completedAt: status === 'completed' ? new Date() : null,
       };
     }
     return topic;

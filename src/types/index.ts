@@ -34,7 +34,7 @@ export interface StudyMaterial {
   tags: string[];
   subjectId: string | null;
   syllabusId: string | null;
-  url?: string; // for links
+  url?: string | null; // for links
   createdAt: Date;
   updatedAt: Date;
   isFavorite: boolean;
@@ -52,8 +52,8 @@ export interface Semester {
   userId: string;
   number: number; // 1-8
   name: string; // "Semester 1", "Semester 2", etc.
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | null;
+  endDate?: Date | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -69,7 +69,7 @@ export interface Subject {
   icon: string; // emoji or icon name
   description: string;
   status: SubjectStatus;
-  cgpa?: number; // 0-10 scale, only for passed subjects
+  cgpa?: number | null; // 0-10 scale, only for passed subjects
   creditHours?: number;
   progress: number; // 0-100 based on syllabus completion
   createdAt: Date;
@@ -100,7 +100,7 @@ export interface SyllabusTopic {
   estimatedHours: number;
   priority: Priority;
   status: TopicStatus;
-  completedAt?: Date;
+  completedAt?: Date | null;
   order: number;
   isCompleted: boolean;
   notes: string;
@@ -141,7 +141,7 @@ export interface Task {
   priority: Priority;
   status: TaskStatus;
   estimatedMinutes: number;
-  completedAt?: Date;
+  completedAt?: Date | null;
   tags: string[];
   createdAt: Date;
   updatedAt: Date;

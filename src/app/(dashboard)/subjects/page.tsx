@@ -162,7 +162,7 @@ export default function SubjectsPage() {
                 color: newSubjectColor,
                 icon: '📚',
                 status: 'ongoing',
-                creditHours: newSubjectCredits ? parseInt(newSubjectCredits) : undefined,
+                creditHours: newSubjectCredits ? parseInt(newSubjectCredits) : 0,
                 progress: 0,
             });
 
@@ -199,7 +199,7 @@ export default function SubjectsPage() {
     const handleStatusChange = async (subject: Subject, newStatus: SubjectStatus) => {
         try {
             await updateSubjectStatus(subject.id, newStatus);
-            updateSubjectInStore(subject.id, { status: newStatus, cgpa: newStatus === 'passed' ? subject.cgpa : undefined });
+            updateSubjectInStore(subject.id, { status: newStatus, cgpa: newStatus === 'passed' ? subject.cgpa : null });
             toast.success(`Status updated to ${STATUS_STYLES[newStatus].label}`);
         } catch (error) {
             console.error('Error updating status:', error);
@@ -341,7 +341,7 @@ export default function SubjectsPage() {
         const failed = semesterSubjects.filter(s => s.status === 'failed').length;
         const ongoing = semesterSubjects.filter(s => s.status === 'ongoing').length;
 
-        const passedWithCgpa = semesterSubjects.filter(s => s.status === 'passed' && s.cgpa !== undefined);
+        const passedWithCgpa = semesterSubjects.filter(s => s.status === 'passed' && s.cgpa != null);
         const avgCgpa = passedWithCgpa.length > 0
             ? passedWithCgpa.reduce((sum, s) => sum + (s.cgpa || 0), 0) / passedWithCgpa.length
             : null;
