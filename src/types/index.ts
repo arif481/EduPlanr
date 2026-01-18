@@ -42,14 +42,35 @@ export interface StudyMaterial {
 
 export type MaterialType = 'note' | 'link' | 'document' | 'flashcard';
 
+// Subject status for tracking
+export type SubjectStatus = 'ongoing' | 'passed' | 'failed';
+
+// Semester for organizing subjects (1-8)
+export interface Semester {
+  id: string;
+  userId: string;
+  number: number; // 1-8
+  name: string; // "Semester 1", "Semester 2", etc.
+  startDate?: Date;
+  endDate?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Subject/Course
 export interface Subject {
   id: string;
   userId: string;
+  semesterId: string;
   name: string;
   color: string; // hex color for UI
   icon: string; // emoji or icon name
   description: string;
+  status: SubjectStatus;
+  cgpa?: number; // 0-10 scale, only for passed subjects
+  creditHours?: number;
+  progress: number; // 0-100 based on syllabus completion
   createdAt: Date;
   updatedAt: Date;
 }

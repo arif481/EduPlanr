@@ -1,13 +1,15 @@
 /**
  * Dashboard Page
  * Main overview with stats, recent activities, and quick actions
+ * Uses REAL Firebase data - no mock data
  */
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   CalendarDaysIcon,
   ClockIcon,
@@ -24,34 +26,87 @@ import { Card, CardHeader, Button, ProgressBar, CircularProgress, Badge } from '
 import { useAuthStore, useChatStore } from '@/store';
 import { useTimer } from '@/hooks';
 import { formatTimer, formatDuration, getGreeting } from '@/lib/utils';
+import { getUserSubjects, getSubjectStats } from '@/services/subjectsService';
+import { getUserSyllabi, calculateProgress } from '@/services/syllabusService';
+import { Subject, Syllabus } from '@/types';
 
-// Quick stats data (would come from API in production)
-const mockStats = {
-  studyHoursToday: 2.5,
-  studyHoursGoal: 4,
-  tasksCompleted: 5,
-  tasksPending: 3,
-  currentStreak: 7,
-  weeklyProgress: 68,
-};
-
-const recentSessions = [
-  { id: 1, subject: 'Mathematics', topic: 'Calculus - Integration', duration: 45, completedAt: new Date() },
-  { id: 2, subject: 'Physics', topic: 'Quantum Mechanics', duration: 60, completedAt: new Date(Date.now() - 3600000) },
-  { id: 3, subject: 'Computer Science', topic: 'Data Structures', duration: 30, completedAt: new Date(Date.now() - 7200000) },
-];
-
-const upcomingTasks = [
-  { id: 1, title: 'Complete Chapter 5 exercises', subject: 'Mathematics', dueIn: '2 hours', priority: 'high' },
-  { id: 2, title: 'Review lecture notes', subject: 'Physics', dueIn: 'Tomorrow', priority: 'medium' },
-  { id: 3, title: 'Submit assignment', subject: 'Computer Science', dueIn: '3 days', priority: 'low' },
-];
+// Stats interface
+interface DashboardStats {
+  totalSubjects: number;
+  ongoingSubjects: number;
+  passedSubjects: number;
+  failedSubjects: number;
+  averageCgpa: number;
+  syllabusProgress: number;
+  totalTopics: number;
+  completedTopics: number;
+}
 
 export default function DashboardPage() {
-  const { profile } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { openChat } = useChatStore();
   const timer = useTimer();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalSubjects: 0,
+    ongoingSubjects: 0,
+    passedSubjects: 0,
+    failedSubjects: 0,
+    averageCgpa: 0,
+    syllabusProgress: 0,
+    totalTopics: 0,
+    completedTopics: 0,
+  });
+  const [recentSubjects, setRecentSubjects] = useState<Subject[]>([]);
+  const [recentSyllabi, setRecentSyllabi] = useState<Syllabus[]>([]);
+
+  // Fetch real data from Firebase
+  const fetchDashboardData = useCallback(async () => {
+    if (!user?.uid) return;
+
+    setIsLoading(true);
+    try {
+      // Fetch subjects
+      const subjects = await getUserSubjects(user.uid);
+      const subjectStats = await getSubjectStats(user.uid);
+
+      // Fetch syllabi
+      const syllabi = await getUserSyllabi(user.uid);
+
+      // Calculate syllabus progress
+      let totalTopics = 0;
+      let completedTopics = 0;
+      syllabi.forEach(s => {
+        totalTopics += s.topics?.length || 0;
+        completedTopics += s.topics?.filter(t => t.status === 'completed').length || 0;
+      });
+
+      const syllabusProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+
+      setStats({
+        totalSubjects: subjectStats.total,
+        ongoingSubjects: subjectStats.ongoing,
+        passedSubjects: subjectStats.passed,
+        failedSubjects: subjectStats.failed,
+        averageCgpa: subjectStats.averageCgpa,
+        syllabusProgress,
+        totalTopics,
+        completedTopics,
+      });
+
+      // Set recent subjects (last 5)
+      setRecentSubjects(subjects.slice(0, 5));
+
+      // Set recent syllabi (last 3)
+      setRecentSyllabi(syllabi.slice(0, 3));
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid]);
 
   // Update current time every minute
   useEffect(() => {
@@ -61,7 +116,20 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const progressPercentage = (mockStats.studyHoursToday / mockStats.studyHoursGoal) * 100;
+  // Fetch data on mount
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const progressPercentage = stats.syllabusProgress;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -76,10 +144,10 @@ export default function DashboardPage() {
             {getGreeting()}, {profile?.displayName?.split(' ')[0] || 'Student'}! 👋
           </h1>
           <p className="text-gray-400 mt-1">
-            {currentTime.toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              month: 'long', 
-              day: 'numeric' 
+            {currentTime.toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric'
             })}
           </p>
         </div>
@@ -104,7 +172,7 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today's progress */}
+        {/* Overall Progress */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -113,17 +181,17 @@ export default function DashboardPage() {
           <Card variant="gradient" className="h-full">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-gray-400">Today's Study</p>
+                <p className="text-sm text-gray-400">Syllabus Progress</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {mockStats.studyHoursToday}h
+                  {stats.completedTopics}
                   <span className="text-sm font-normal text-gray-400">
-                    {' '}/ {mockStats.studyHoursGoal}h
+                    {' '}/ {stats.totalTopics} topics
                   </span>
                 </p>
               </div>
-              <CircularProgress 
-                value={progressPercentage} 
-                size={60} 
+              <CircularProgress
+                value={progressPercentage}
+                size={60}
                 strokeWidth={6}
                 variant={progressPercentage >= 100 ? 'success' : 'default'}
               />
@@ -132,7 +200,7 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Tasks completed */}
+        {/* Subjects Count */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -141,11 +209,11 @@ export default function DashboardPage() {
           <Card variant="gradient" className="h-full">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-gray-400">Tasks Completed</p>
+                <p className="text-sm text-gray-400">Subjects</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {mockStats.tasksCompleted}
+                  {stats.passedSubjects}
                   <span className="text-sm font-normal text-gray-400">
-                    {' '}/ {mockStats.tasksCompleted + mockStats.tasksPending}
+                    {' '}/ {stats.totalSubjects} passed
                   </span>
                 </p>
               </div>
@@ -153,14 +221,13 @@ export default function DashboardPage() {
                 <CheckCircleIcon className="w-6 h-6 text-neon-green" />
               </div>
             </div>
-            <p className="text-sm text-neon-green mt-4 flex items-center gap-1">
-              <ArrowTrendingUpIcon className="w-4 h-4" />
-              +2 from yesterday
+            <p className="text-sm text-gray-400 mt-4">
+              {stats.ongoingSubjects} ongoing • {stats.failedSubjects} failed
             </p>
           </Card>
         </motion.div>
 
-        {/* Study streak */}
+        {/* Average CGPA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -169,22 +236,25 @@ export default function DashboardPage() {
           <Card variant="gradient" className="h-full">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-gray-400">Study Streak</p>
+                <p className="text-sm text-gray-400">Average CGPA</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {mockStats.currentStreak} days 🔥
+                  {stats.averageCgpa > 0 ? stats.averageCgpa.toFixed(2) : 'N/A'}
+                  <span className="text-sm font-normal text-gray-400">
+                    {' '}/ 10
+                  </span>
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-neon-orange/20 flex items-center justify-center">
-                <ChartBarIcon className="w-6 h-6 text-neon-orange" />
+              <div className="w-12 h-12 rounded-xl bg-neon-purple/20 flex items-center justify-center">
+                <AcademicCapIcon className="w-6 h-6 text-neon-purple" />
               </div>
             </div>
             <p className="text-sm text-gray-400 mt-4">
-              Keep it up! Your best was 14 days
+              Based on {stats.passedSubjects} passed subjects
             </p>
           </Card>
         </motion.div>
 
-        {/* Weekly progress */}
+        {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -193,21 +263,20 @@ export default function DashboardPage() {
           <Card variant="gradient" className="h-full">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-gray-400">Weekly Goal</p>
-                <p className="text-2xl font-bold text-white mt-1">
-                  {mockStats.weeklyProgress}%
-                </p>
+                <p className="text-sm text-gray-400">Quick Actions</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Link href="/subjects">
+                    <Button size="sm" variant="secondary">Subjects</Button>
+                  </Link>
+                  <Link href="/syllabus">
+                    <Button size="sm" variant="secondary">Syllabus</Button>
+                  </Link>
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-neon-purple/20 flex items-center justify-center">
-                <AcademicCapIcon className="w-6 h-6 text-neon-purple" />
+              <div className="w-12 h-12 rounded-xl bg-neon-cyan/20 flex items-center justify-center">
+                <ChartBarIcon className="w-6 h-6 text-neon-cyan" />
               </div>
             </div>
-            <ProgressBar 
-              value={mockStats.weeklyProgress} 
-              className="mt-4" 
-              size="sm" 
-              variant={mockStats.weeklyProgress >= 80 ? 'success' : 'default'}
-            />
           </Card>
         </motion.div>
       </div>
@@ -236,8 +305,8 @@ export default function DashboardPage() {
                 <p className="text-gray-400 mb-6">
                   {timer.sessionType === 'study' ? '📚 Study session' : '☕ Break time'}
                 </p>
-                <ProgressBar 
-                  value={timer.progress} 
+                <ProgressBar
+                  value={timer.progress}
                   className="max-w-md mx-auto mb-6"
                   variant={timer.sessionType === 'study' ? 'default' : 'success'}
                 />
@@ -275,7 +344,7 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
 
-        {/* Upcoming tasks */}
+        {/* Recent Subjects */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -283,54 +352,71 @@ export default function DashboardPage() {
         >
           <Card className="h-full">
             <CardHeader
-              title="Upcoming Tasks"
-              subtitle={`${mockStats.tasksPending} pending`}
-              icon={<CalendarDaysIcon className="w-5 h-5" />}
+              title="Your Subjects"
+              subtitle={`${stats.totalSubjects} total`}
+              icon={<BookOpenIcon className="w-5 h-5" />}
               action={
-                <Link href="/tasks">
+                <Link href="/subjects">
                   <Button variant="ghost" size="sm">View all</Button>
                 </Link>
               }
             />
 
-            <div className="space-y-3">
-              {upcomingTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="p-3 rounded-xl bg-dark-700/30 border border-dark-600/30 hover:border-dark-500/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {task.title}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{task.subject}</p>
+            {recentSubjects.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No subjects yet</p>
+                <Link href="/subjects">
+                  <Button variant="secondary" size="sm" leftIcon={<PlusIcon className="w-4 h-4" />}>
+                    Add Subject
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentSubjects.map((subject) => (
+                  <div
+                    key={subject.id}
+                    className="p-3 rounded-xl bg-dark-700/30 border border-dark-600/30 hover:border-dark-500/50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {subject.name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {subject.creditHours ? `${subject.creditHours} credits` : 'No credits set'}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          subject.status === 'passed'
+                            ? 'green'
+                            : subject.status === 'failed'
+                              ? 'red'
+                              : 'yellow'
+                        }
+                        size="sm"
+                      >
+                        {subject.status === 'passed' && subject.cgpa
+                          ? `${subject.cgpa.toFixed(1)}`
+                          : subject.status.charAt(0).toUpperCase() + subject.status.slice(1)}
+                      </Badge>
                     </div>
-                    <Badge
-                      variant={
-                        task.priority === 'high'
-                          ? 'red'
-                          : task.priority === 'medium'
-                          ? 'yellow'
-                          : 'default'
-                      }
-                      size="sm"
-                    >
-                      {task.dueIn}
-                    </Badge>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
-            <Button variant="secondary" fullWidth className="mt-4" leftIcon={<PlusIcon className="w-4 h-4" />}>
-              Add Task
-            </Button>
+            <Link href="/subjects">
+              <Button variant="secondary" fullWidth className="mt-4" leftIcon={<PlusIcon className="w-4 h-4" />}>
+                Manage Subjects
+              </Button>
+            </Link>
           </Card>
         </motion.div>
       </div>
 
-      {/* Recent sessions */}
+      {/* Recent Syllabi */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -338,47 +424,62 @@ export default function DashboardPage() {
       >
         <Card>
           <CardHeader
-            title="Recent Sessions"
-            subtitle="Your study activity"
+            title="Recent Syllabi"
+            subtitle="Your study progress"
             icon={<BookOpenIcon className="w-5 h-5" />}
             action={
-              <Link href="/calendar">
-                <Button variant="ghost" size="sm">View calendar</Button>
+              <Link href="/syllabus">
+                <Button variant="ghost" size="sm">View all</Button>
               </Link>
             }
           />
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-sm text-gray-400 border-b border-dark-600/50">
-                  <th className="pb-3 font-medium">Subject</th>
-                  <th className="pb-3 font-medium">Topic</th>
-                  <th className="pb-3 font-medium">Duration</th>
-                  <th className="pb-3 font-medium">Completed</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {recentSessions.map((session) => (
-                  <tr key={session.id} className="border-b border-dark-600/30 last:border-0">
-                    <td className="py-4">
-                      <span className="text-white font-medium">{session.subject}</span>
-                    </td>
-                    <td className="py-4 text-gray-300">{session.topic}</td>
-                    <td className="py-4">
-                      <Badge variant="neon">{formatDuration(session.duration)}</Badge>
-                    </td>
-                    <td className="py-4 text-gray-400">
-                      {session.completedAt.toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </td>
+          {recentSyllabi.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No syllabi yet. Add subjects to get started!</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-sm text-gray-400 border-b border-dark-600/50">
+                    <th className="pb-3 font-medium">Course</th>
+                    <th className="pb-3 font-medium">Topics</th>
+                    <th className="pb-3 font-medium">Progress</th>
+                    <th className="pb-3 font-medium">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="text-sm">
+                  {recentSyllabi.map((syllabus) => {
+                    const progress = calculateProgress(syllabus);
+                    const completedCount = syllabus.topics?.filter(t => t.status === 'completed').length || 0;
+                    const totalCount = syllabus.topics?.length || 0;
+
+                    return (
+                      <tr key={syllabus.id} className="border-b border-dark-600/30 last:border-0">
+                        <td className="py-4">
+                          <span className="text-white font-medium">{syllabus.title}</span>
+                        </td>
+                        <td className="py-4 text-gray-300">
+                          {completedCount} / {totalCount}
+                        </td>
+                        <td className="py-4">
+                          <div className="w-24">
+                            <ProgressBar value={progress} size="sm" />
+                          </div>
+                        </td>
+                        <td className="py-4">
+                          <Badge variant={progress === 100 ? 'green' : progress > 50 ? 'yellow' : 'default'}>
+                            {progress}%
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </motion.div>
     </div>

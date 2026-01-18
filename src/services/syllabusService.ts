@@ -13,7 +13,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -32,7 +31,7 @@ export async function createSyllabus(
   if (!db) throw new Error('Firebase not initialized');
 
   const syllabusRef = collection(db, COLLECTION_NAME);
-  
+
   // Ensure each topic has an ID
   const topicsWithIds = syllabus.topics.map((topic, index) => ({
     ...topic,
@@ -51,7 +50,7 @@ export async function createSyllabus(
   };
 
   const docRef = await addDoc(syllabusRef, docData);
-  
+
   return {
     id: docRef.id,
     ...syllabus,
@@ -70,7 +69,7 @@ export async function getSyllabus(syllabusId: string): Promise<Syllabus | null> 
 
   const docRef = doc(db, COLLECTION_NAME, syllabusId);
   const docSnap = await getDoc(docRef);
-  
+
   if (!docSnap.exists()) return null;
 
   const data = docSnap.data();
@@ -96,13 +95,12 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
 
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
-    orderBy('updatedAt', 'desc')
+    where('userId', '==', userId)
   );
 
   const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map((docSnap) => {
+
+  const syllabi = snapshot.docs.map((docSnap) => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
@@ -117,6 +115,8 @@ export async function getUserSyllabi(userId: string): Promise<Syllabus[]> {
       })) || [],
     } as Syllabus;
   });
+
+  return syllabi.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
 /**
@@ -130,24 +130,27 @@ export async function getSyllabiBySubject(
 
   const q = query(
     collection(db, COLLECTION_NAME),
-    where('userId', '==', userId),
-    where('subjectId', '==', subjectId),
-    orderBy('startDate', 'asc')
+    where('userId', '==', userId)
   );
 
   const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      ...data,
-      startDate: data.startDate?.toDate() || new Date(),
-      endDate: data.endDate?.toDate() || new Date(),
-      createdAt: data.createdAt?.toDate() || new Date(),
-      updatedAt: data.updatedAt?.toDate() || new Date(),
-    } as Syllabus;
-  });
+
+  const syllabi = snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...data,
+        startDate: data.startDate?.toDate() || new Date(),
+        endDate: data.endDate?.toDate() || new Date(),
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as Syllabus;
+    })
+    .filter(s => s.subjectId === subjectId)
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+  return syllabi;
 }
 
 /**
@@ -160,7 +163,7 @@ export async function updateSyllabus(
   if (!db) throw new Error('Firebase not initialized');
 
   const docRef = doc(db, COLLECTION_NAME, syllabusId);
-  
+
   await updateDoc(docRef, {
     ...updates,
     updatedAt: serverTimestamp(),
@@ -194,9 +197,9 @@ export async function addTopic(
   };
 
   const updatedTopics = [...syllabus.topics, newTopic];
-  
+
   await updateSyllabus(syllabusId, { topics: updatedTopics });
-  
+
   return newTopic;
 }
 
@@ -286,11 +289,11 @@ export async function reorderTopics(
  */
 export function calculateProgress(syllabus: Syllabus): number {
   if (syllabus.topics.length === 0) return 0;
-  
+
   const completedTopics = syllabus.topics.filter(
     (topic) => topic.status === 'completed'
   ).length;
-  
+
   return Math.round((completedTopics / syllabus.topics.length) * 100);
 }
 
