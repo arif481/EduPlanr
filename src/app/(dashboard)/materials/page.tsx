@@ -130,7 +130,7 @@ export default function MaterialsPage() {
         tags: tagsArray,
         subjectId: newSubjectId || null,
         syllabusId: null,
-        url: newType === 'link' ? newUrl : undefined,
+        url: newType === 'link' ? newUrl : null,
         isFavorite: false,
         isArchived: false,
       });

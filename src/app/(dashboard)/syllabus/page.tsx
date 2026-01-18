@@ -104,7 +104,7 @@ export default function SyllabusPage() {
               ...topic,
               status: newStatus as 'completed' | 'not-started',
               isCompleted: newStatus === 'completed',
-              completedAt: newStatus === 'completed' ? new Date() : undefined,
+              completedAt: newStatus === 'completed' ? new Date() : null,
             }
             : topic
         );
