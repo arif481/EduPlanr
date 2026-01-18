@@ -1,91 +1,38 @@
 /**
  * Study Materials Page
- * CRUD interface for notes, links, and documents
+ * CRUD interface for notes, links, and documents with REAL Firebase data
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import {
   PlusIcon,
   DocumentTextIcon,
   LinkIcon,
   FolderIcon,
   MagnifyingGlassIcon,
-  FunnelIcon,
   Squares2X2Icon,
   ListBulletIcon,
   HeartIcon,
   TrashIcon,
   PencilIcon,
-  EllipsisVerticalIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
-import { Card, CardHeader, Button, Input, Badge, Modal } from '@/components/ui';
-import { cn, formatSmartDate, truncate } from '@/lib/utils';
-import { StudyMaterial, MaterialType } from '@/types';
-
-// Mock data
-const mockMaterials: StudyMaterial[] = [
-  {
-    id: '1',
-    userId: '1',
-    title: 'Calculus Integration Notes',
-    content: '<p>Integration by parts, substitution, partial fractions...</p>',
-    type: 'note',
-    tags: ['calculus', 'math'],
-    subjectId: '1',
-    syllabusId: null,
-    createdAt: new Date(Date.now() - 86400000),
-    updatedAt: new Date(Date.now() - 3600000),
-    isFavorite: true,
-    isArchived: false,
-  },
-  {
-    id: '2',
-    userId: '1',
-    title: 'Khan Academy - Linear Algebra',
-    content: 'https://www.khanacademy.org/math/linear-algebra',
-    type: 'link',
-    tags: ['linear-algebra', 'math', 'video'],
-    subjectId: '1',
-    syllabusId: null,
-    url: 'https://www.khanacademy.org/math/linear-algebra',
-    createdAt: new Date(Date.now() - 172800000),
-    updatedAt: new Date(Date.now() - 172800000),
-    isFavorite: false,
-    isArchived: false,
-  },
-  {
-    id: '3',
-    userId: '1',
-    title: 'Physics Lab Report Template',
-    content: '<p>Lab report structure and guidelines...</p>',
-    type: 'document',
-    tags: ['physics', 'template'],
-    subjectId: '2',
-    syllabusId: null,
-    createdAt: new Date(Date.now() - 259200000),
-    updatedAt: new Date(Date.now() - 86400000),
-    isFavorite: true,
-    isArchived: false,
-  },
-  {
-    id: '4',
-    userId: '1',
-    title: 'Data Structures Flashcards',
-    content: '<p>Binary trees, hash tables, graphs...</p>',
-    type: 'flashcard',
-    tags: ['cs', 'algorithms'],
-    subjectId: '3',
-    syllabusId: null,
-    createdAt: new Date(Date.now() - 345600000),
-    updatedAt: new Date(Date.now() - 172800000),
-    isFavorite: false,
-    isArchived: false,
-  },
-];
+import { Card, Button, Input, Badge, Modal } from '@/components/ui';
+import { cn, formatSmartDate } from '@/lib/utils';
+import { StudyMaterial, MaterialType, Subject } from '@/types';
+import { useAuthStore } from '@/store';
+import {
+  getUserMaterials,
+  createMaterial,
+  deleteMaterial,
+  toggleMaterialFavorite,
+} from '@/services/materialsService';
+import { getUserSubjects } from '@/services/subjectsService';
 
 const materialTypeConfig: Record<MaterialType, { icon: React.ElementType; color: string }> = {
   note: { icon: DocumentTextIcon, color: 'text-neon-cyan' },
@@ -95,12 +42,45 @@ const materialTypeConfig: Record<MaterialType, { icon: React.ElementType; color:
 };
 
 export default function MaterialsPage() {
-  const [materials, setMaterials] = useState<StudyMaterial[]>(mockMaterials);
+  const { user } = useAuthStore();
+  const [materials, setMaterials] = useState<StudyMaterial[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<MaterialType | 'all'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<StudyMaterial | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Form states
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [newType, setNewType] = useState<MaterialType>('note');
+  const [newSubjectId, setNewSubjectId] = useState('');
+  const [newTags, setNewTags] = useState('');
+
+  const fetchData = useCallback(async () => {
+    if (!user?.uid) return;
+    setIsLoading(true);
+    try {
+      const [fetchedMaterials, fetchedSubjects] = await Promise.all([
+        getUserMaterials(user.uid),
+        getUserSubjects(user.uid),
+      ]);
+      setMaterials(fetchedMaterials);
+      setSubjects(fetchedSubjects);
+    } catch (error) {
+      console.error('Error fetching materials:', error);
+      toast.error('Failed to load materials');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Filter materials
   const filteredMaterials = materials.filter((material) => {
@@ -110,17 +90,75 @@ export default function MaterialsPage() {
     return matchesSearch && matchesType;
   });
 
-  // Toggle favorite
-  const toggleFavorite = (id: string) => {
-    setMaterials((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, isFavorite: !m.isFavorite } : m))
-    );
+  const handleToggleFavorite = async (e: React.MouseEvent, id: string, currentStatus: boolean) => {
+    e.stopPropagation();
+    try {
+      await toggleMaterialFavorite(id, !currentStatus);
+      setMaterials(prev => prev.map(m => m.id === id ? { ...m, isFavorite: !currentStatus } : m));
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
+    }
   };
 
-  // Delete material
-  const deleteMaterial = (id: string) => {
-    setMaterials((prev) => prev.filter((m) => m.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this material?')) return;
+    try {
+      await deleteMaterial(id);
+      setMaterials(prev => prev.filter(m => m.id !== id));
+      setSelectedMaterial(null);
+      toast.success('Material deleted');
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      toast.error('Failed to delete material');
+    }
   };
+
+  const handleAddMaterial = async () => {
+    if (!user?.uid || !newTitle.trim()) {
+      toast.error('Please enter a title');
+      return;
+    }
+
+    try {
+      const tagsArray = newTags.split(',').map(t => t.trim()).filter(Boolean);
+
+      const newMaterial = await createMaterial(user.uid, {
+        title: newTitle.trim(),
+        content: newContent.trim(),
+        type: newType,
+        tags: tagsArray,
+        subjectId: newSubjectId || null,
+        syllabusId: null,
+        url: newType === 'link' ? newUrl : undefined,
+        isFavorite: false,
+        isArchived: false,
+      });
+
+      setMaterials(prev => [newMaterial, ...prev]);
+
+      // Reset form
+      setNewTitle('');
+      setNewContent('');
+      setNewUrl('');
+      setNewType('note');
+      setNewSubjectId('');
+      setNewTags('');
+      setIsAddModalOpen(false);
+      toast.success('Material added successfully!');
+    } catch (error) {
+      console.error('Error adding material:', error);
+      toast.error('Failed to add material');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-neon-cyan"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -164,7 +202,7 @@ export default function MaterialsPage() {
         </div>
 
         {/* Type filter */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0">
           <Button
             variant={selectedType === 'all' ? 'primary' : 'secondary'}
             size="sm"
@@ -233,7 +271,7 @@ export default function MaterialsPage() {
                   >
                     <Card
                       hoverable
-                      className="h-full cursor-pointer"
+                      className="h-full cursor-pointer flex flex-col"
                       onClick={() => setSelectedMaterial(material)}
                     >
                       <div className="flex items-start justify-between">
@@ -242,10 +280,7 @@ export default function MaterialsPage() {
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(material.id);
-                            }}
+                            onClick={(e) => handleToggleFavorite(e, material.id, material.isFavorite)}
                             className="p-1.5 rounded-lg hover:bg-dark-700/50 transition-colors"
                           >
                             {material.isFavorite ? (
@@ -253,15 +288,6 @@ export default function MaterialsPage() {
                             ) : (
                               <HeartIcon className="w-5 h-5 text-gray-400" />
                             )}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteMaterial(material.id);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                          >
-                            <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
@@ -275,6 +301,14 @@ export default function MaterialsPage() {
                           {material.url}
                         </p>
                       )}
+
+                      {material.content && material.type !== 'link' && (
+                        <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                          {material.content}
+                        </p>
+                      )}
+
+                      <div className="flex-1" />
 
                       <div className="flex flex-wrap gap-1.5 mt-3">
                         {material.tags.slice(0, 3).map((tag) => (
@@ -342,10 +376,7 @@ export default function MaterialsPage() {
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(material.id);
-                          }}
+                          onClick={(e) => handleToggleFavorite(e, material.id, material.isFavorite)}
                           className="p-2 rounded-lg hover:bg-dark-700/50 transition-colors"
                         >
                           {material.isFavorite ? (
@@ -354,9 +385,6 @@ export default function MaterialsPage() {
                             <HeartIcon className="w-5 h-5 text-gray-400" />
                           )}
                         </button>
-                        <Button variant="ghost" size="icon">
-                          <EllipsisVerticalIcon className="w-5 h-5" />
-                        </Button>
                       </div>
                     </Card>
                   </motion.div>
@@ -401,14 +429,74 @@ export default function MaterialsPage() {
         description="Create a new study material"
       >
         <div className="space-y-4">
-          <p className="text-gray-400">
-            Material creation form would go here. Select type, add title, content, tags, etc.
-          </p>
+          <Input
+            label="Title"
+            placeholder="e.g. Calculus Notes"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Type</label>
+              <select
+                value={newType}
+                onChange={(e) => setNewType(e.target.value as MaterialType)}
+                className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50"
+              >
+                <option value="note">Note</option>
+                <option value="link">Link</option>
+                <option value="document">Document</option>
+                <option value="flashcard">Flashcard Set</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">Subject</label>
+              <select
+                value={newSubjectId}
+                onChange={(e) => setNewSubjectId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50"
+              >
+                <option value="">None</option>
+                {subjects.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {newType === 'link' && (
+            <Input
+              label="URL"
+              placeholder="https://..."
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
+            />
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">Content/Description</label>
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              rows={4}
+              placeholder="Enter notes or description..."
+              className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 resize-none"
+            />
+          </div>
+
+          <Input
+            label="Tags (comma separated)"
+            placeholder="math, calculus, important"
+            value={newTags}
+            onChange={(e) => setNewTags(e.target.value)}
+          />
+
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={() => setIsAddModalOpen(false)}>
+            <Button variant="primary" onClick={handleAddMaterial}>
               Create Material
             </Button>
           </div>
@@ -431,41 +519,58 @@ export default function MaterialsPage() {
                   {tag}
                 </Badge>
               ))}
+              {selectedMaterial.subjectId && subjects.find(s => s.id === selectedMaterial.subjectId) && (
+                <Badge variant="default" className="bg-neon-purple/20 text-neon-purple border-neon-purple/20">
+                  {subjects.find(s => s.id === selectedMaterial.subjectId)?.name}
+                </Badge>
+              )}
             </div>
 
             {selectedMaterial.type === 'link' && selectedMaterial.url && (
-              <a
-                href={selectedMaterial.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-neon-cyan hover:underline"
-              >
-                {selectedMaterial.url}
-              </a>
+              <div className="p-4 rounded-xl bg-dark-700/30 flex items-center justify-between">
+                <a
+                  href={selectedMaterial.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-neon-cyan hover:underline truncate mr-4"
+                >
+                  {selectedMaterial.url}
+                </a>
+                <a
+                  href={selectedMaterial.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="sm" variant="secondary" leftIcon={<ArrowTopRightOnSquareIcon className="w-4 h-4" />}>
+                    Open
+                  </Button>
+                </a>
+              </div>
             )}
 
-            <div
-              className="prose prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: selectedMaterial.content }}
-            />
+            {selectedMaterial.content && (
+              <div
+                className="prose prose-invert max-w-none p-4 rounded-xl bg-dark-700/30 whitespace-pre-wrap"
+              >
+                {selectedMaterial.content}
+              </div>
+            )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-dark-600/50">
-              <Button
-                variant="secondary"
-                leftIcon={<PencilIcon className="w-4 h-4" />}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="danger"
-                leftIcon={<TrashIcon className="w-4 h-4" />}
-                onClick={() => {
-                  deleteMaterial(selectedMaterial.id);
-                  setSelectedMaterial(null);
-                }}
-              >
-                Delete
-              </Button>
+            <div className="flex justify-between items-center pt-4 border-t border-dark-600/50">
+              <p className="text-xs text-gray-500">
+                Created: {formatSmartDate(selectedMaterial.createdAt)}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="danger"
+                  leftIcon={<TrashIcon className="w-4 h-4" />}
+                  onClick={() => {
+                    handleDelete(selectedMaterial.id);
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </div>
           </div>
         )}

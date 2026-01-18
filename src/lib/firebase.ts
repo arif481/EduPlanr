@@ -4,7 +4,7 @@
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
@@ -36,10 +36,12 @@ if (typeof window !== 'undefined') {
   }
 
   auth = getAuth(app);
-  
+
   // Configure Firebase Auth for production
   if (typeof window !== 'undefined') {
     // Set persistence and other auth settings
+    setPersistence(auth, browserLocalPersistence)
+      .catch((error) => console.error('Auth persistence error:', error));
     auth.useDeviceLanguage();
   }
   db = getFirestore(app);

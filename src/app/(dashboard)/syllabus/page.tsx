@@ -20,7 +20,7 @@ import {
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 import { Card, Button, Input, Badge, Modal, Progress } from '@/components/ui';
 import { cn, formatSmartDate } from '@/lib/utils';
-import { Syllabus, SyllabusTopic } from '@/types';
+import { Syllabus, SyllabusTopic, Subject } from '@/types';
 import { useAuthStore } from '@/store';
 import {
   getUserSyllabi,
@@ -31,10 +31,12 @@ import {
   deleteTopic,
   calculateProgress,
 } from '@/services/syllabusService';
+import { getUserSubjects } from '@/services/subjectsService';
 
 export default function SyllabusPage() {
   const { user } = useAuthStore();
   const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSyllabus, setExpandedSyllabus] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -42,36 +44,41 @@ export default function SyllabusPage() {
   // Form states
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDescription, setNewCourseDescription] = useState('');
+  const [newCourseSubjectId, setNewCourseSubjectId] = useState('');
 
   // Topic add state
   const [addingTopicFor, setAddingTopicFor] = useState<string | null>(null);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicHours, setNewTopicHours] = useState('2');
 
-  // Fetch syllabi from Firebase
-  const fetchSyllabi = useCallback(async () => {
+  // Fetch data
+  const fetchData = useCallback(async () => {
     if (!user?.uid) return;
 
     setIsLoading(true);
     try {
-      const userSyllabi = await getUserSyllabi(user.uid);
-      setSyllabi(userSyllabi);
+      const [fetchedSyllabi, fetchedSubjects] = await Promise.all([
+        getUserSyllabi(user.uid),
+        getUserSubjects(user.uid)
+      ]);
+      setSyllabi(fetchedSyllabi);
+      setSubjects(fetchedSubjects);
 
       // Auto-expand first syllabus if none expanded
-      if (userSyllabi.length > 0 && !expandedSyllabus) {
-        setExpandedSyllabus(userSyllabi[0].id);
+      if (fetchedSyllabi.length > 0 && !expandedSyllabus) {
+        setExpandedSyllabus(fetchedSyllabi[0].id);
       }
     } catch (error) {
-      console.error('Error fetching syllabi:', error);
-      toast.error('Failed to load syllabi');
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
     } finally {
       setIsLoading(false);
     }
   }, [user?.uid, expandedSyllabus]);
 
   useEffect(() => {
-    fetchSyllabi();
-  }, [fetchSyllabi]);
+    fetchData();
+  }, [fetchData]);
 
   // Calculate overall progress
   const totalTopics = syllabi.reduce((sum, s) => sum + (s.topics?.length || 0), 0);
@@ -125,7 +132,7 @@ export default function SyllabusPage() {
 
     try {
       const newSyllabus = await createSyllabus(user.uid, {
-        subjectId: '',
+        subjectId: newCourseSubjectId,
         title: newCourseTitle.trim(),
         description: newCourseDescription.trim(),
         topics: [],
@@ -136,8 +143,11 @@ export default function SyllabusPage() {
       });
 
       setSyllabi(prev => [newSyllabus, ...prev]);
+
+      // Reset form
       setNewCourseTitle('');
       setNewCourseDescription('');
+      setNewCourseSubjectId('');
       setIsAddModalOpen(false);
       toast.success('Course added successfully!');
     } catch (error) {
@@ -293,6 +303,7 @@ export default function SyllabusPage() {
           const isExpanded = expandedSyllabus === syllabus.id;
           const topicsCount = syllabus.topics?.length || 0;
           const completedCount = syllabus.topics?.filter(t => t.status === 'completed').length || 0;
+          const linkedSubject = subjects.find(s => s.id === syllabus.subjectId);
 
           return (
             <motion.div
@@ -320,7 +331,14 @@ export default function SyllabusPage() {
                     </div>
 
                     <div className="flex-1 text-left">
-                      <h3 className="text-lg font-semibold text-white">{syllabus.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-white">{syllabus.title}</h3>
+                        {linkedSubject && (
+                          <Badge variant="default" className="text-xs">
+                            {linkedSubject.name}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-400 line-clamp-1">
                         {syllabus.description || 'No description'}
                       </p>
@@ -515,6 +533,23 @@ export default function SyllabusPage() {
             value={newCourseTitle}
             onChange={(e) => setNewCourseTitle(e.target.value)}
           />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1.5">
+              Link to Subject (Optional)
+            </label>
+            <select
+              value={newCourseSubjectId}
+              onChange={(e) => setNewCourseSubjectId(e.target.value)}
+              className="w-full px-4 py-2.5 bg-dark-800/50 border border-dark-600/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-neon-cyan/50"
+            >
+              <option value="">None</option>
+              {subjects.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">
               Description

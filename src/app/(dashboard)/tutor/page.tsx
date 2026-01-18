@@ -1,6 +1,6 @@
 /**
- * AI Tutor Page
- * GPT-powered chat interface for study assistance
+ * AI Smart Tutor Page
+ * Interactive chat interface for study assistance
  */
 
 'use client';
@@ -10,382 +10,200 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   PaperAirplaneIcon,
   SparklesIcon,
-  AcademicCapIcon,
-  BookOpenIcon,
-  LightBulbIcon,
-  ClipboardDocumentListIcon,
+  ChatBubbleLeftRightIcon,
   ArrowPathIcon,
   TrashIcon,
-  ChevronDownIcon,
-  DocumentTextIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
-import { Card, Button, Badge, Avatar, Loading } from '@/components/ui';
-import { cn, formatSmartDate } from '@/lib/utils';
+import { Card, Button, Avatar } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/store';
 import { sendTutorMessage } from '@/services/tutorApiClient';
+import { ChatMessage } from '@/types';
+import toast from 'react-hot-toast';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+// Mock response generator for fallback/demo mode
+const generateMockResponse = (input: string): string => {
+  const lowercaseInput = input.toLowerCase();
 
-interface QuickAction {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  prompt: string;
-  color: string;
-}
+  if (lowercaseInput.includes('plan') || lowercaseInput.includes('schedule')) {
+    return "I can help you create a study plan! Based on your subjects, I'd recommend creating dedicated time blocks for each. try to alternate between difficult and easier subjects to maintain focus. Would you like me to suggest a specific schedule?";
+  }
+  if (lowercaseInput.includes('math') || lowercaseInput.includes('calculus')) {
+    return "Mathematics often requires practice. For Calculus, try breaking down the problem into smaller steps. Are you working on derivatives or integrals? I can provide some practice problems if you like.";
+  }
+  if (lowercaseInput.includes('tired') || lowercaseInput.includes('break')) {
+    return "It sounds like you might need a break. The Pomodoro technique (25 min study, 5 min break) is great for maintaining energy. Why not take a short walk or stretch?";
+  }
+  if (lowercaseInput.includes('hello') || lowercaseInput.includes('hi')) {
+    return "Hello! I'm your Smart Tutor. I'm here to help you study more effectively. What subject are you working on today?";
+  }
 
-const quickActions: QuickAction[] = [
-  {
-    id: 'explain',
-    label: 'Explain Concept',
-    icon: LightBulbIcon,
-    prompt: 'Explain the following concept in simple terms: ',
-    color: 'from-neon-yellow to-neon-orange',
-  },
-  {
-    id: 'quiz',
-    label: 'Generate Quiz',
-    icon: ClipboardDocumentListIcon,
-    prompt: 'Create 5 practice questions about: ',
-    color: 'from-neon-cyan to-neon-blue',
-  },
-  {
-    id: 'summarize',
-    label: 'Summarize Notes',
-    icon: DocumentTextIcon,
-    prompt: 'Please summarize the following notes in bullet points: ',
-    color: 'from-neon-green to-neon-cyan',
-  },
-  {
-    id: 'flashcards',
-    label: 'Create Flashcards',
-    icon: BookOpenIcon,
-    prompt: 'Create 5 flashcards (question and answer pairs) for: ',
-    color: 'from-neon-purple to-neon-pink',
-  },
-];
-
-// Mock conversation history
-const initialMessages: Message[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    content: `# Welcome to EduPlanr AI Tutor! 🎓
-
-I'm your personal AI study assistant. I can help you with:
-
-- **Explaining concepts** in simple terms
-- **Generating practice questions** and quizzes
-- **Summarizing notes** and study materials
-- **Creating flashcards** for memorization
-- **Answering questions** about any subject
-
-What would you like to learn about today?`,
-    timestamp: new Date(),
-  },
-];
+  return "That's an interesting point. Could you tell me more about what you're studying specifically? I can help explain concepts, summarize notes, or create flashcards for you.";
+};
 
 export default function TutorPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<QuickAction | null>(null);
+  const { user, profile } = useAuthStore();
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: `Hi ${profile?.displayName?.split(' ')[0] || 'there'}! I'm your AI Smart Tutor. I can help you understand complex topics, create study plans, or just keep you motivated. What are we studying today?`,
+      timestamp: new Date(),
+    },
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
 
-  // Handle send message
-  const handleSendMessage = async (content?: string) => {
-    const messageContent = content || inputValue.trim();
-    if (!messageContent) return;
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isTyping) return;
 
-    // Add user message
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageContent,
+      content: input.trim(),
       timestamp: new Date(),
     };
+
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-    setSelectedAction(null);
-    setIsLoading(true);
+    setInput('');
+    setIsTyping(true);
 
     try {
-      // Call Firebase Function for real AI response
-      const aiResponse = await sendTutorMessage(
-        messages.map((m) => ({ ...m, timestamp: m.timestamp })),
-        messageContent
-      );
+      // Small artificial delay for better UX if response is too fast
+      const [aiResponse] = await Promise.all([
+        sendTutorMessage(messages, userMessage.content).catch(() => null), // Catch error to allow fallback
+        new Promise(resolve => setTimeout(resolve, 600))
+      ]);
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      if (aiResponse) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: aiResponse,
+            timestamp: new Date(),
+          },
+        ]);
+      } else {
+        // Fallback to mock if API fails (e.g. no API key)
+        console.warn('AI API failed, using fallback response');
+        const mockResponse = generateMockResponse(userMessage.content);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: mockResponse,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
     } catch (error) {
-      console.error('AI Tutor error:', error);
-      // Fallback to mock response if API fails
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: generateMockResponse(messageContent),
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
     } finally {
-      setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
-  // Generate mock AI response
-  const generateMockResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-
-    if (lowerMessage.includes('quiz') || lowerMessage.includes('question')) {
-      return `## Practice Questions 📝
-
-Here are some practice questions based on your topic:
-
-1. **Question 1**: What is the fundamental principle behind this concept?
-   - A) Option A
-   - B) Option B
-   - C) Option C
-   - D) Option D
-
-2. **Question 2**: How would you apply this concept in a real-world scenario?
-
-3. **Question 3**: What are the key differences between related concepts?
-
-4. **Question 4**: Explain the step-by-step process involved.
-
-5. **Question 5**: What are common mistakes to avoid?
-
----
-*Need hints or want to check your answers? Just ask!*`;
+  const handleClearChat = () => {
+    if (confirm('Clear conversation history?')) {
+      setMessages([
+        {
+          id: 'welcome-new',
+          role: 'assistant',
+          content: 'Chat cleared. How can I help you now?',
+          timestamp: new Date(),
+        },
+      ]);
     }
-
-    if (lowerMessage.includes('flashcard')) {
-      return `## Flashcards Created! 🎴
-
-| Front | Back |
-|-------|------|
-| What is the main concept? | A brief explanation of the core idea |
-| Key formula or equation? | The mathematical representation |
-| Real-world application? | How this is used in practice |
-| Common mistake? | What to watch out for |
-| Related concept? | How it connects to other topics |
-
----
-*Would you like me to create more flashcards or focus on a specific area?*`;
-    }
-
-    if (lowerMessage.includes('summarize') || lowerMessage.includes('summary')) {
-      return `## Summary 📋
-
-Here's a concise summary of the key points:
-
-### Main Ideas
-- **Point 1**: Core concept explanation
-- **Point 2**: Important details to remember
-- **Point 3**: Practical applications
-
-### Key Takeaways
-1. First major insight
-2. Second major insight
-3. Third major insight
-
-### Next Steps
-- Review related materials
-- Practice with examples
-- Test your understanding
-
----
-*Want me to expand on any of these points?*`;
-    }
-
-    if (lowerMessage.includes('explain')) {
-      return `## Explanation 💡
-
-Let me break this down for you:
-
-### What is it?
-This concept refers to a fundamental principle in the subject area. Think of it like building blocks - each piece connects to form a larger understanding.
-
-### How does it work?
-1. **Step 1**: The initial process begins with...
-2. **Step 2**: This leads to...
-3. **Step 3**: Finally, the result is...
-
-### Why is it important?
-Understanding this concept helps you:
-- Solve related problems more efficiently
-- Connect ideas across different topics
-- Build a strong foundation for advanced topics
-
-### Example
-Imagine you're trying to... [concrete example with relatable scenario]
-
----
-*Does this explanation help? Feel free to ask follow-up questions!*`;
-    }
-
-    // Default response
-    return `## Great question! 🤔
-
-Based on what you've asked, here's what I can tell you:
-
-This is an interesting topic with several important aspects to consider:
-
-1. **Understanding the basics**: Start with the fundamental concepts
-2. **Building connections**: See how this relates to what you already know
-3. **Practical application**: Look for real-world examples
-
-### Here's a helpful tip:
-When studying this topic, try to create your own examples. This helps reinforce your understanding and makes the material more memorable.
-
-### Want to go deeper?
-- I can generate practice questions to test your knowledge
-- I can create flashcards for quick revision
-- I can explain specific aspects in more detail
-
-*Just let me know what would be most helpful!*`;
-  };
-
-  // Handle quick action
-  const handleQuickAction = (action: QuickAction) => {
-    setSelectedAction(action);
-    setInputValue(action.prompt);
-    inputRef.current?.focus();
-  };
-
-  // Handle key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // Clear conversation
-  const clearConversation = () => {
-    setMessages(initialMessages);
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-4"
-      >
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-neon-purple/20 to-neon-pink/20">
-            <SparklesIcon className="w-6 h-6 text-neon-purple" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white font-display">AI Tutor</h1>
-            <p className="text-sm text-gray-400">Powered by GPT-4</p>
-          </div>
+      <div className="flex items-center justify-between flex-shrink-0">
+        <div>
+          <h1 className="text-3xl font-bold text-white font-display flex items-center gap-3">
+            <SparklesIcon className="w-8 h-8 text-neon-purple" />
+            Smart Tutor
+          </h1>
+          <p className="text-gray-400 mt-1">Your personal AI study assistant</p>
         </div>
-
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<TrashIcon className="w-4 h-4" />}
-          onClick={clearConversation}
-        >
+        <Button variant="ghost" size="sm" onClick={handleClearChat} leftIcon={<TrashIcon className="w-4 h-4" />}>
           Clear Chat
         </Button>
-      </motion.div>
+      </div>
 
-      {/* Chat container */}
-      <div className="flex-1 flex flex-col bg-dark-800/50 rounded-2xl border border-dark-600/50 overflow-hidden">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <AnimatePresence>
-            {messages.map((message, index) => (
+      {/* Chat Area */}
+      <Card className="flex-1 flex flex-col overflow-hidden bg-dark-800/50 backdrop-blur-sm border-dark-600/50">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {messages.map((message) => {
+            const isUser = message.role === 'user';
+            return (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
                 className={cn(
-                  'flex gap-3',
-                  message.role === 'user' ? 'flex-row-reverse' : ''
+                  'flex gap-4 max-w-[85%]',
+                  isUser ? 'ml-auto flex-row-reverse' : ''
                 )}
               >
-                {/* Avatar */}
                 <div className="flex-shrink-0">
-                  {message.role === 'assistant' ? (
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
-                      <SparklesIcon className="w-5 h-5 text-white" />
-                    </div>
+                  {isUser ? (
+                    <Avatar name={profile?.displayName || 'User'} size="sm" />
                   ) : (
-                    <Avatar name="User" size="md" />
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center shadow-lg shadow-neon-purple/20">
+                      <CpuChipIcon className="w-5 h-5 text-white" />
+                    </div>
                   )}
                 </div>
 
-                {/* Message content */}
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-2xl px-4 py-3',
-                    message.role === 'assistant'
-                      ? 'bg-dark-700/50 border border-dark-600/50'
-                      : 'bg-gradient-to-r from-neon-cyan/20 to-neon-blue/20 border border-neon-cyan/30'
+                    'p-4 rounded-2xl text-sm leading-relaxed shadow-lg',
+                    isUser
+                      ? 'bg-neon-purple text-white rounded-tr-none'
+                      : 'bg-dark-700 text-gray-100 rounded-tl-none border border-dark-600'
                   )}
                 >
-                  <div
-                    className="prose prose-invert prose-sm max-w-none prose-neon"
-                    dangerouslySetInnerHTML={{
-                      __html: message.content
-                        .replace(/\n/g, '<br>')
-                        .replace(/#{3} (.*)/g, '<h3>$1</h3>')
-                        .replace(/#{2} (.*)/g, '<h2>$1</h2>')
-                        .replace(/#{1} (.*)/g, '<h1>$1</h1>')
-                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                        .replace(/- (.*)/g, '<li>$1</li>')
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    {formatSmartDate(message.timestamp)}
-                  </p>
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <div className={cn("text-xs mt-2 opacity-50", isUser ? "text-purple-200" : "text-gray-500")}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
+            );
+          })}
 
-          {/* Loading indicator */}
-          {isLoading && (
+          {/* Typing indicator */}
+          {isTyping && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex gap-3"
+              className="flex gap-4 max-w-[85%]"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
-                <SparklesIcon className="w-5 h-5 text-white animate-pulse" />
-              </div>
-              <div className="bg-dark-700/50 border border-dark-600/50 rounded-2xl px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Loading size="sm" />
-                  <span className="text-gray-400">Thinking...</span>
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center shadow-lg shadow-neon-purple/20">
+                  <CpuChipIcon className="w-5 h-5 text-white" />
                 </div>
+              </div>
+              <div className="bg-dark-700 p-4 rounded-2xl rounded-tl-none border border-dark-600 flex items-center gap-1">
+                <div className="w-2 h-2 bg-neon-purple/50 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-2 h-2 bg-neon-purple/50 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-2 h-2 bg-neon-purple/50 rounded-full animate-bounce"></div>
               </div>
             </motion.div>
           )}
@@ -393,61 +211,38 @@ When studying this topic, try to create your own examples. This helps reinforce 
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick actions */}
-        <div className="p-3 border-t border-dark-600/50">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.id}
-                  onClick={() => handleQuickAction(action)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-xl whitespace-nowrap transition-all',
-                    'bg-dark-700/50 hover:bg-dark-600/50 border border-dark-600/50',
-                    selectedAction?.id === action.id && 'border-neon-cyan/50 bg-neon-cyan/10'
-                  )}
-                >
-                  <div className={cn('p-1.5 rounded-lg bg-gradient-to-r', action.color)}>
-                    <Icon className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-sm text-gray-300">{action.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* Input Area */}
+        <div className="p-4 bg-dark-800 border-t border-dark-600">
+          <form
+            onSubmit={handleSendMessage}
+            className="flex items-center gap-3 relative"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask me anything about your studies..."
+              className="flex-1 bg-dark-700/50 border border-dark-500/50 text-white rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-neon-purple/50 focus:border-neon-purple/50 transition-all placeholder:text-gray-500"
+              disabled={isTyping}
+            />
 
-        {/* Input area */}
-        <div className="p-4 border-t border-dark-600/50">
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Ask me anything about your studies..."
-                className="w-full px-4 py-3 bg-dark-700/50 border border-dark-600/50 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/50 transition-all resize-none"
-                rows={2}
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => handleSendMessage()}
-              disabled={!inputValue.trim() || isLoading}
-              className="self-end"
+            <button
+              type="submit"
+              disabled={!input.trim() || isTyping}
+              className="absolute right-2 p-2 bg-neon-purple text-white rounded-lg hover:bg-neon-purple/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-neon-purple/20"
             >
-              <PaperAirplaneIcon className="w-5 h-5" />
-            </Button>
-          </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Press Enter to send • Shift+Enter for new line
+              {isTyping ? (
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+              ) : (
+                <PaperAirplaneIcon className="w-5 h-5" />
+              )}
+            </button>
+          </form>
+          <p className="text-center text-xs text-gray-500 mt-2">
+            AI can make mistakes. Consider checking important information.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }
