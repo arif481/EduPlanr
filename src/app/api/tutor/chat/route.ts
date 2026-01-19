@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
     // Support both GEMINI_API_KEY and GOOGLE_API_KEY
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
+    console.log('Debug Env Vars:', {
+      Target: 'Gemini',
+      HasGeminiKey: !!process.env.GEMINI_API_KEY,
+      HasGoogleKey: !!process.env.GOOGLE_API_KEY,
+      KeyLength: apiKey ? apiKey.length : 0
+    });
+
     if (!apiKey) {
       return NextResponse.json({
         content: "I am currently running in **Demo Mode** because the `GEMINI_API_KEY` environment variable is not configured on the server.\n\nTo enable my full AI capabilities (Powered by Google Gemini 1.5 Flash), please add your Gemini API key to the project's environment variables.\n\nIn the meantime, feel free to explore the other features of EduPlanr! 🚀"
