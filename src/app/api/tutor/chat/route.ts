@@ -1,6 +1,6 @@
 /**
  * AI Tutor Chat API Route (Gemini)
- * Secure server-side Google Gemini integration
+ * Secure server-side Google Gemini integration with Model Fallback
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,6 +28,9 @@ You can help with:
 
 Remember: You're here to empower students to learn, not just give answers. Guide them to understanding.`;
 
+// List of models to try in order of preference
+const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro-latest"];
+
 export async function POST(request: NextRequest) {
   try {
     const { messages, userMessage } = await request.json();
@@ -41,58 +44,70 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) {
       return NextResponse.json({
-        content: "I am currently running in **Demo Mode** because the `GEMINI_API_KEY` environment variable is not configured on the server.\n\nTo enable my full AI capabilities (Powered by Google Gemini 1.5 Flash), please add your Gemini API key to the project's environment variables.\n\nIn the meantime, feel free to explore the other features of EduPlanr! 🚀"
+        content: "I am currently running in **Demo Mode** because the `GEMINI_API_KEY` environment variable is not configured on the server.\n\nTo enable my full AI capabilities (Powered by Google Gemini), please add your Gemini API key to the project's environment variables.\n\nIn the meantime, feel free to explore the other features of EduPlanr! 🚀"
       });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-pro",
-    });
 
-    // Convert conversation history to Gemini format
+    // Prepare history once
     // OpenAI format: { role: 'user' | 'assistant', content: string }
     // Gemini format: { role: 'user' | 'model', parts: [{ text: string }] }
-
     let history = (messages || []).slice(-10).map((msg: { role: string; content: string }) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
     }));
 
-    // Gemini 1.0 Pro doesn't strictly support systemInstruction in all cases, so we prepend it
-    // Or we rely on the tutor persona being strong enough.
-    // Let's prepend it to the history if accurate.
-
-    // Ensure history starts with user (required for gemini-pro)
+    // Gemini requires the first message in history to be from 'user'
     if (history.length > 0 && history[0].role === 'model') {
       history = history.slice(1);
     }
 
-    // Inject system prompt into the start of the conversation if possible
-    // or just startChat with it. But startChat history must be alternating.
-    // Easiest: Prepend to first user message? Or start the chat with a "fake" history.
-
-    // Implementation: using startChat with history.
-
-    const chat = model.startChat({
-      history: history,
-      generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.7,
-      },
-    });
-
-    // Send the system prompt + user message as the final message? 
-    // No, that might confuse it.
-    // Better: Send system prompt combined with user message.
-
+    // Construct the final message with system prompt injection
     const finalUserMessage = `${SYSTEM_PROMPT}\n\nStudent's Question: ${userMessage}`;
 
-    const result = await chat.sendMessage(finalUserMessage);
-    const response = await result.response;
-    const content = response.text();
+    // Try models in sequence
+    let lastError = null;
 
-    return NextResponse.json({ content });
+    for (const modelName of MODELS_TO_TRY) {
+      try {
+        console.log(`Attempting to use model: ${modelName}`);
+        const model = genAI.getGenerativeModel({ model: modelName });
+
+        const chat = model.startChat({
+          history: history,
+          generationConfig: {
+            maxOutputTokens: 1000,
+            temperature: 0.7,
+          },
+        });
+
+        const result = await chat.sendMessage(finalUserMessage);
+        const response = await result.response;
+        const content = response.text();
+
+        // If successful, return immediately
+        return NextResponse.json({ content });
+
+      } catch (error: any) {
+        console.warn(`Model ${modelName} failed:`, error.message);
+        lastError = error;
+
+        // If error is 404 (Not Found) or 400 (Bad Request - typically model related), continue to next model
+        // Otherwise (e.g. 401 Unauthorized), checking other models won't help, but we'll try anyway just to be safe.
+        // If it's the last model, we'll start throwing/returning error.
+        if (modelName === MODELS_TO_TRY[MODELS_TO_TRY.length - 1]) {
+          break;
+        }
+      }
+    }
+
+    // If all failed
+    console.error('All Gemini models failed. Last error:', lastError);
+    return NextResponse.json({
+      error: 'Failed to generate response capabilities'
+    }, { status: 500 });
+
   } catch (error) {
     console.error('Gemini Chat API error:', error);
     return NextResponse.json({ error: 'Failed to generate response' }, { status: 500 });
