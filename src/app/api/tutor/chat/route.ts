@@ -28,8 +28,8 @@ You can help with:
 
 Remember: You're here to empower students to learn, not just give answers. Guide them to understanding.`;
 
-// List of models to try in order of preference
-const MODELS_TO_TRY = ["gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro-latest"];
+// List of models to try in order of preference (Verified Jan 2026)
+const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-2.0-flash"];
 
 export async function POST(request: NextRequest) {
   try {
