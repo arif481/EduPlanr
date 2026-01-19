@@ -1,10 +1,10 @@
 /**
- * AI Tutor Chat API Route
- * Secure server-side OpenAI integration
+ * AI Tutor Chat API Route (Gemini)
+ * Secure server-side Google Gemini integration
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const SYSTEM_PROMPT = `You are EduPlanr's Smart Tutor, an intelligent and friendly study assistant. Your role is to help students learn effectively.
 
@@ -36,36 +36,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'userMessage is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    // Support both GEMINI_API_KEY and GOOGLE_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
     if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+      return NextResponse.json({
+        content: "I am currently running in **Demo Mode** because the `GEMINI_API_KEY` environment variable is not configured on the server.\n\nTo enable my full AI capabilities (Powered by Google Gemini 1.5 Flash), please add your Gemini API key to the project's environment variables.\n\nIn the meantime, feel free to explore the other features of EduPlanr! 🚀"
+      });
     }
 
-    const openai = new OpenAI({ apiKey });
-
-    // Build conversation history (last 10 messages)
-    const conversationHistory = (messages || []).slice(-10).map((msg: { role: string; content: string }) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...conversationHistory,
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: SYSTEM_PROMPT
     });
 
-    const content = response.choices[0]?.message?.content || 
-      "I apologize, but I couldn't generate a response. Please try again.";
+    // Convert conversation history to Gemini format
+    // OpenAI format: { role: 'user' | 'assistant', content: string }
+    // Gemini format: { role: 'user' | 'model', parts: [{ text: string }] }
+
+    const history = (messages || []).slice(-10).map((msg: { role: string; content: string }) => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
+
+    const chat = model.startChat({
+      history: history,
+      generationConfig: {
+        maxOutputTokens: 1000,
+        temperature: 0.7,
+      },
+    });
+
+    const result = await chat.sendMessage(userMessage);
+    const response = await result.response;
+    const content = response.text();
 
     return NextResponse.json({ content });
   } catch (error) {
-    console.error('Chat API error:', error);
+    console.error('Gemini Chat API error:', error);
     return NextResponse.json({ error: 'Failed to generate response' }, { status: 500 });
   }
 }
