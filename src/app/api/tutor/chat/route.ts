@@ -93,23 +93,30 @@ export async function POST(request: NextRequest) {
         console.warn(`Model ${modelName} failed:`, error.message);
         lastError = error;
 
-        // If error is 404 (Not Found) or 400 (Bad Request - typically model related), continue to next model
-        // Otherwise (e.g. 401 Unauthorized), checking other models won't help, but we'll try anyway just to be safe.
-        // If it's the last model, we'll start throwing/returning error.
-        if (modelName === MODELS_TO_TRY[MODELS_TO_TRY.length - 1]) {
+        // Check for specific fatal errors
+        if (error.message.includes('API key') || error.message.includes('location')) {
+          // If key is invalid or location blocked, stop trying others
           break;
         }
       }
     }
 
-    // If all failed
+    // If all failed, return the error to the user as a chat message for debugging
     console.error('All Gemini models failed. Last error:', lastError);
-    return NextResponse.json({
-      error: 'Failed to generate response capabilities'
-    }, { status: 500 });
 
-  } catch (error) {
+    let errorMessage = "I'm having trouble connecting to my brain right now.";
+    if (lastError?.message?.includes('404')) {
+      errorMessage += "\n\n**Debug Info:** The API returned 404 (Not Found). This usually means either:\n1. The API Key is from a project that doesn't have the Generative Language API enabled.\n2. The model is not available in your region.\n3. The API Key is invalid.";
+    } else if (lastError?.message) {
+      errorMessage += `\n\n**Error Details:** ${lastError.message}`;
+    }
+
+    return NextResponse.json({
+      content: errorMessage + "\n\nPlease check your server logs for more details."
+    }); // Return 200 so the client displays this message
+
+  } catch (error: any) {
     console.error('Gemini Chat API error:', error);
-    return NextResponse.json({ error: 'Failed to generate response' }, { status: 500 });
+    return NextResponse.json({ content: `**System Error:** ${error.message}` });
   }
 }
