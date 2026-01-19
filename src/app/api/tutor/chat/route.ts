@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction: SYSTEM_PROMPT
+      model: "gemini-pro",
     });
 
     // Convert conversation history to Gemini format
@@ -60,10 +59,20 @@ export async function POST(request: NextRequest) {
       parts: [{ text: msg.content }],
     }));
 
-    // Gemini requires the first message in history to be from 'user'
+    // Gemini 1.0 Pro doesn't strictly support systemInstruction in all cases, so we prepend it
+    // Or we rely on the tutor persona being strong enough.
+    // Let's prepend it to the history if accurate.
+
+    // Ensure history starts with user (required for gemini-pro)
     if (history.length > 0 && history[0].role === 'model') {
       history = history.slice(1);
     }
+
+    // Inject system prompt into the start of the conversation if possible
+    // or just startChat with it. But startChat history must be alternating.
+    // Easiest: Prepend to first user message? Or start the chat with a "fake" history.
+
+    // Implementation: using startChat with history.
 
     const chat = model.startChat({
       history: history,
@@ -73,7 +82,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const result = await chat.sendMessage(userMessage);
+    // Send the system prompt + user message as the final message? 
+    // No, that might confuse it.
+    // Better: Send system prompt combined with user message.
+
+    const finalUserMessage = `${SYSTEM_PROMPT}\n\nStudent's Question: ${userMessage}`;
+
+    const result = await chat.sendMessage(finalUserMessage);
     const response = await result.response;
     const content = response.text();
 
