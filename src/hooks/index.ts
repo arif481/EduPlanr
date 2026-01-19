@@ -18,12 +18,11 @@ export function useAuth() {
   useEffect(() => {
     if (!isClient() || !auth) return;
 
+    // Listen for auth state changes (login, logout, token refresh)
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
-      
       if (firebaseUser) {
         setUser(firebaseUser);
-        
+
         // Fetch user profile from Firestore
         try {
           const userProfile = await getUserProfile(firebaseUser.uid);
@@ -34,8 +33,15 @@ export function useAuth() {
       } else {
         reset();
       }
-      
+    });
+
+    // Handle initial loading state
+    // authStateReady() resolves when the initial auth state is settled (persistence checked)
+    auth.authStateReady().then(() => {
       setLoading(false);
+    }).catch((error) => {
+      console.error('Auth state ready error:', error);
+      setLoading(false); // Ensure we don't hang if error
     });
 
     return () => unsubscribe();
@@ -79,8 +85,8 @@ export function useTimer() {
   }, [timerState]);
 
   const remaining = timerState.duration - timerState.elapsed;
-  const progress = timerState.duration > 0 
-    ? (timerState.elapsed / timerState.duration) * 100 
+  const progress = timerState.duration > 0
+    ? (timerState.elapsed / timerState.duration) * 100
     : 0;
 
   return {
@@ -119,7 +125,7 @@ export function useLocalStorage<T>(
       try {
         const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);
-        
+
         if (isClient()) {
           localStorage.setItem(key, JSON.stringify(valueToStore));
         }
