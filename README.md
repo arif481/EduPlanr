@@ -10,7 +10,7 @@
 
 ## What it does
 
-- **Planner and calendar.** Schedule study sessions around your availability, drag them around the calendar, and run them with a Pomodoro-style timer and break reminders.
+- **Planner and calendar.** Schedule study sessions on a calendar and time them with the built-in study timer.
 - **Syllabus tracking.** Add courses and topics, tick them off as you go, and see progress per course with an estimated time for each topic.
 - **Notes and materials.** A rich-text notes editor, plus links, documents and flashcards organised with tags and favourites.
 - **AI tutor.** Chat with a tutor that explains concepts, writes practice questions and makes flashcards. It runs on Google Gemini (2.5 Flash first, falling back to other Gemini models if one is unavailable), server-side, with per-user authentication and rate limiting.

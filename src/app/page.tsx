@@ -21,8 +21,8 @@ import { Button } from '@/components/ui';
 const features = [
   {
     icon: CalendarDaysIcon,
-    title: 'Smart Scheduling',
-    description: 'AI-powered study schedule that adapts to your deadlines and learning pace.',
+    title: 'Study Calendar',
+    description: 'Plan study sessions on a calendar and track them with a built-in study timer.',
   },
   {
     icon: AcademicCapIcon,
@@ -119,12 +119,12 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Stats */}
+            {/* Highlights */}
             <div className="flex items-center justify-center gap-12 mt-16 flex-wrap">
               {[
-                { value: '10K+', label: 'Active Students' },
-                { value: '50K+', label: 'Study Sessions' },
-                { value: '95%', label: 'Goal Completion' },
+                { value: 'Gemini', label: 'AI tutor' },
+                { value: 'PDF', label: 'Syllabus import' },
+                { value: 'Timer', label: 'Study sessions' },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
                   <div className="text-3xl font-bold text-neon-cyan font-display">
@@ -244,8 +244,8 @@ export default function HomePage() {
             Ready to Transform Your Studies?
           </h2>
           <p className="text-gray-400 mb-8 max-w-xl mx-auto">
-            Join thousands of students who are already studying smarter with EduPlanr. 
-            Start your free trial today.
+            Add your subjects, import your syllabus or exam timetable, and study with the AI tutor.
+            Free to start.
           </p>
           <Link href="/auth/signup">
             <Button variant="primary" size="lg" className="text-lg px-10">
