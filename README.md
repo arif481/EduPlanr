@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo.svg" alt="EduPlanr logo" width="160" />
+  <img src="public/favicon.svg" alt="EduPlanr logo" width="120" />
 
   <h1>EduPlanr</h1>
 
