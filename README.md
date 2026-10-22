@@ -10,13 +10,13 @@
 
 ## What it does
 
-- **Planner and calendar.** Schedule study sessions on a calendar and time them with the built-in study timer.
-- **Syllabus tracking.** Add courses and topics, tick them off as you go, and see progress per course with an estimated time for each topic.
-- **Notes and materials.** A rich-text notes editor, plus links, documents and flashcards organised with tags and favourites.
-- **AI tutor.** Chat with a tutor that explains concepts, writes practice questions and makes flashcards. It runs on Google Gemini (2.5 Flash first, falling back to other Gemini models if one is unavailable), server-side, with per-user authentication and rate limiting.
-- **Import from documents.** Upload a course list, syllabus or exam timetable (PDF or text) and Gemini pulls out the subjects, the topics with estimated study hours, or each exam's date, time and venue.
-- **Exams, routine, subjects and notifications** pages to keep the rest of the term in one place.
-- **Accounts** with Google sign-in, email and password, or an anonymous trial mode.
+- Schedule study sessions on a calendar and time them with the study timer.
+- Track a syllabus: add courses and topics, tick them off, and see progress per course with an estimated time for each topic.
+- Keep notes in a rich-text editor, and links, documents and flashcards organised with tags and favourites.
+- Ask the AI tutor to explain a concept, write practice questions or make flashcards. It calls Google Gemini on the server (2.5 Flash first, other Gemini models if that one is unavailable), with per-user authentication and rate limiting.
+- Upload a course list, syllabus or exam timetable (PDF or text) and Gemini pulls out the subjects, the topics with estimated study hours, or each exam's date, time and venue.
+- Exams, routine, subjects and notifications each have their own page.
+- Sign in with Google, email and password, or try it anonymously.
 
 ## Tech stack
 
@@ -24,7 +24,7 @@ Next.js 14 (App Router) and TypeScript, Tailwind CSS, Framer Motion, Zustand for
 
 ## Running it locally
 
-You need Node.js 18 or newer, a Firebase project, and a Gemini API key from Google AI Studio.
+You need Node.js 24, a Firebase project, and a Gemini API key from Google AI Studio.
 
 ```bash
 git clone https://github.com/arif481/EduPlanr.git
